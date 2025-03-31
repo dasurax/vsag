@@ -23,6 +23,7 @@ extern const char* const INDEX_FRESH_HNSW;
 extern const char* const INDEX_PYRAMID;
 extern const char* const INDEX_BRUTE_FORCE;
 extern const char* const INDEX_IVF;
+extern const char* const INDEX_IVF_PQ;
 extern const char* const DIM;
 extern const char* const NUM_ELEMENTS;
 extern const char* const IDS;
@@ -137,5 +138,11 @@ extern const char* const IVF_BUCKETS_COUNT;
 extern const char* const IVF_BASE_QUANTIZATION_TYPE;
 extern const char* const IVF_BASE_IO_TYPE;
 extern const char* const IVF_BASE_FILE_PATH;
+
+extern const char* const IVF_PQ_COARSE_CLUSTER_COUNT;
+extern const char* const IVF_PQ_FINE_CLUSTER_COUNT;
+extern const char* const IVF_PQ_FILTER_NSQ;
+extern const char* const IVF_PQ_TRAIN_POINTS_COUNT;
+extern const char* const IVF_PQ_PQ_TRAIN_POINTS_COUNT;
 
 }  // namespace vsag

@@ -1,0 +1,56 @@
+global:
+  exporters:
+    e1: # give a name you like, will not be used
+      format: "text"
+      to: "stdout"
+    e2:
+      format: "json"
+      to: "/tmp/perf-00.json"
+
+GIST-HGRAPH:
+    datapath: "./data/gist-960-euclidean.hdf5"
+    type: "build,search" # build, search
+    index_name: "hgraph"
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"base_quantization_type":"sq8_uniform","max_degree":96,"ef_construction":400, "precise_quantization_type":"fp32", "use_reorder":true}}'
+    search_params: '{"hgraph":{"ef_search":120}}'
+    index_path: "./index/gist-960-euclidean/hgraph_index"
+    topk: 10
+    search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
+    range: 0.5
+    delete_index_after_search: false
+
+GIST-HGRAPH-FP32:
+    datapath: "./data/gist-960-euclidean.hdf5"
+    type: "build,search" # build, search
+    index_name: "hgraph"
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"base_quantization_type": "fp32", "ef_construction":200, "max_degree":32}}'
+    search_params: '{"hgraph":{"ef_search":200}}'
+    index_path: "./index/gist-960-euclidean/hgraph_index_fp32"
+    topk: 10
+    search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
+    range: 0.5
+    delete_index_after_search: false
+    
+SIFT-IVF-PQ:
+    datapath: "./data/sift-128-euclidean.hdf5"
+    type: "build,search" # build, search
+    index_name: "ivf_pq"
+    create_params: '{"dim":128,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":50,"base_quantization_type":"fp32","coarse_cluster_count":100,"fine_cluster_count":100,"filter_nsq":32,"train_points_count":500000,"pq_train_points_count":100000}}'
+    search_params: '{"ivf_pq":{"scan_buckets_count":10,"search_coarse_count":30,"search_fine_count":100,"filter_topk":150,"window_size":20}}'
+    index_path: "./index/sift-128-euclidean/hgraph_index"
+    topk: 10
+    search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
+    range: 0.5
+    delete_index_after_search: false
+
+GIST-IVF-PQ:
+    datapath: "./data/gist-960-euclidean.hdf5"
+    type: "build,search" # build,search
+    index_name: "ivf_pq"
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":50,"base_quantization_type":"fp32","coarse_cluster_count":100,"fine_cluster_count":100,"filter_nsq":240,"train_points_count":500000,"pq_train_points_count":100000}}'
+    search_params: '{"ivf_pq":{"scan_buckets_count":10,"search_coarse_count":50,"search_fine_count":200,"filter_topk":200,"window_size":20}}'
+    index_path: "./index/gist-960-euclidean/hgraph_index"
+    topk: 10
+    search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
+    range: 0.5
+    delete_index_after_search: false

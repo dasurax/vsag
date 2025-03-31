@@ -22,6 +22,7 @@ namespace vsag {
 // Index Type
 const char* const INDEX_TYPE_HGRAPH = "hgraph";
 const char* const INDEX_TYPE_IVF = "ivf";
+const char* const INDEX_TYPE_IVF_PQ = "ivf_pq";
 
 // Parameter key for hgraph
 const char* const HGRAPH_USE_REORDER_KEY = "use_reorder";
@@ -69,9 +70,21 @@ const char* const BUCKET_PARAMS_KEY = "buckets_params";
 const char* const BUCKETS_COUNT_KEY = "buckets_count";
 const char* const IVF_SEARCH_PARAM_SCAN_BUCKETS_COUNT = "scan_buckets_count";
 
+const char* const COARSE_CLUSTER_COUNT_KEY = "coarse_cluster_count";
+const char* const FINE_CLUSTER_COUNT_KEY = "fine_cluster_count";
+const char* const FILTER_NSQ_KEY = "filter_nsq";
+const char* const TRAIN_POINTS_COUNT_KEY = "train_points_count";
+const char* const PQ_TRAIN_POINTS_COUNT_KEY = "pq_train_points_count";
+
+const char* const IVF_SEARCH_PARAM_SEARCH_COARSE_COUNT = "search_coarse_count";
+const char* const IVF_SEARCH_PARAM_SEARCH_FINE_COUNT = "search_fine_count";
+const char* const IVF_SEARCH_PARAM_FILTER_TOPK = "filter_topk";
+const char* const IVF_SEARCH_PARAM_WINDOW_SIZE = "window_size";
+
 const std::unordered_map<std::string, std::string> DEFAULT_MAP = {
     {"INDEX_TYPE_HGRAPH", INDEX_TYPE_HGRAPH},
     {"INDEX_TYPE_IVF", INDEX_TYPE_IVF},
+    {"INDEX_TYPE_IVF_PQ", INDEX_TYPE_IVF_PQ},
     {"HGRAPH_USE_REORDER_KEY", HGRAPH_USE_REORDER_KEY},
     {"HGRAPH_GRAPH_KEY", HGRAPH_GRAPH_KEY},
     {"HGRAPH_BASE_CODES_KEY", HGRAPH_BASE_CODES_KEY},
@@ -101,6 +114,12 @@ const std::unordered_map<std::string, std::string> DEFAULT_MAP = {
     {"DEFAULT_FILE_PATH_VALUE", DEFAULT_FILE_PATH_VALUE},
     {"SQ4_UNIFORM_QUANTIZATION_TRUNC_RATE", SQ4_UNIFORM_QUANTIZATION_TRUNC_RATE},
     {"IVF_SEARCH_PARAM_SCAN_BUCKETS_COUNT", IVF_SEARCH_PARAM_SCAN_BUCKETS_COUNT},
+    {"COARSE_CLUSTER_COUNT_KEY", COARSE_CLUSTER_COUNT_KEY},
+    {"FINE_CLUSTER_COUNT_KEY", FINE_CLUSTER_COUNT_KEY},
+    {"FILTER_NSQ_KEY", FILTER_NSQ_KEY},
+    {"TRAIN_POINTS_COUNT_KEY", TRAIN_POINTS_COUNT_KEY},
+    {"PQ_TRAIN_POINTS_COUNT_KEY", PQ_TRAIN_POINTS_COUNT_KEY},
+    {"BUCKETS_COUNT_KEY", BUCKETS_COUNT_KEY}
 };
 
 }  // namespace vsag

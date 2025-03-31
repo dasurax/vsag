@@ -143,16 +143,26 @@ SearchEvalCase::deserialize() {
     std::ifstream infile(this->index_path_, std::ios::binary);
     this->index_->Deserialize(infile);
 }
+
+
 void
 SearchEvalCase::do_knn_search() {
     uint64_t topk = config_.top_k;
     auto query_count = this->dataset_ptr_->GetNumberOfQuery();
     this->logger_->Debug("query count is " + std::to_string(query_count));
-    auto min_query = std::max(query_count, 10000L);
+    std::cout << "query count is " << query_count << std::endl;
+    auto min_query = std::max(query_count, 3000L);
+    std::cout << "query count is " << query_count << " " << min_query << std::endl;
+    size_t i = 0;
     for (auto& monitor : this->monitors_) {
+        std::cout << "monitor i " << i << " " << monitor->GetName() << std::endl;
+        i += 1;
         monitor->Start();
         for (int64_t id = 0; id < min_query; ++id) {
             auto i = id % query_count;
+            //if (i % 100 == 0) {
+              //  std::cout << "monitor i " << i << " " << id << " " << query_count << std::endl;
+            //}
             auto query = vsag::Dataset::Make();
             query->NumElements(1)->Dim(this->dataset_ptr_->GetDim())->Owner(false);
             const void* query_vector = this->dataset_ptr_->GetOneTest(i);
@@ -175,6 +185,62 @@ SearchEvalCase::do_knn_search() {
         monitor->Stop();
     }
 }
+
+
+/*
+void
+SearchEvalCase::do_knn_search() {
+    uint64_t topk = config_.top_k;
+    auto query_count = this->dataset_ptr_->GetNumberOfQuery();
+    this->logger_->Debug("query count is " + std::to_string(query_count));
+    std::cout << "query count is " << query_count << std::endl;
+    auto min_query = std::max(query_count, 1000L);
+    std::cout << "query count is " << query_count << " " << min_query << std::endl;
+    size_t i = 0;
+
+    std::vector<std::tuple<const int64_t*, int64_t*, EvalDatasetPtr, const void*, uint64_t>> records;
+
+    for (auto& monitor : this->monitors_) {
+        monitor->Start();
+    }
+    for (int64_t id = 0; id < min_query; ++id) {
+        auto i = id % query_count;
+        //if (i % 100 == 0) {
+            //  std::cout << "monitor i " << i << " " << id << " " << query_count << std::endl;
+        //}
+        auto query = vsag::Dataset::Make();
+        query->NumElements(1)->Dim(this->dataset_ptr_->GetDim())->Owner(false);
+        const void* query_vector = this->dataset_ptr_->GetOneTest(i);
+        if (this->dataset_ptr_->GetTestDataType() == vsag::DATATYPE_FLOAT32) {
+            query->Float32Vectors((const float*)query_vector);
+        } else if (this->dataset_ptr_->GetTestDataType() == vsag::DATATYPE_INT8) {
+            query->Int8Vectors((const int8_t*)query_vector);
+        }
+        auto result = this->index_->KnnSearch(query, topk, config_.search_param);
+        if (not result.has_value()) {
+            std::cerr << "query error: " << result.error().message << std::endl;
+            exit(-1);
+        }
+        const int64_t* neighbors = result.value()->GetIds();
+        int64_t* ground_truth_neighbors = dataset_ptr_->GetNeighbors(i);
+
+        auto record = std::make_tuple(
+                neighbors, ground_truth_neighbors, dataset_ptr_.get(), query_vector, topk);
+        for (auto& monitor : this->monitors_) {
+            monitor->Record(&record);
+        }
+        records.emplace_back(neighbors, ground_truth_neighbors, dataset_ptr_.get(), this->dataset_ptr_->GetOneTest(i), topk);
+    }
+    for (auto& monitor : this->monitors_) {
+        monitor->Stop();
+    }
+    for (auto& monitor : this->monitors_) {
+        for (auto& record : records) {
+            //monitor->Record(&record);
+        }
+    }
+}
+*/
 void
 SearchEvalCase::do_range_search() {
 }
