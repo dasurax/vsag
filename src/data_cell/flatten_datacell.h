@@ -79,6 +79,9 @@ public:
         uint8_t end_flag =
             127;  // the value is meaningless, only to occupy the position for io allocate
         this->io_->Write(&end_flag, 1, io_size);
+        if (force_in_memory_) {
+            this->force_in_memory_io_->Write(&end_flag, 1, io_size);
+        }
     }
 
     void
@@ -226,23 +229,24 @@ FlattenDataCell<QuantTmpl, IOTmpl>::Train(const float* data, uint64_t count) {
 template <typename QuantTmpl, typename IOTmpl>
 void
 FlattenDataCell<QuantTmpl, IOTmpl>::InsertVector(const float* vector, InnerIdType idx) {
-    if (idx == std::numeric_limits<InnerIdType>::max()) {
-        idx = total_count_;
-        ++total_count_;
-    } else {
-        total_count_ = std::max(total_count_, idx + 1);
+    {
+        std::lock_guard lock(mutex_);
+        if (idx == std::numeric_limits<InnerIdType>::max()) {
+            idx = total_count_;
+            ++total_count_;
+        } else {
+            total_count_ = std::max(total_count_, idx + 1);
+        }
     }
-
-    auto* codes = reinterpret_cast<uint8_t*>(allocator_->Allocate(code_size_));
-    quantizer_->EncodeOne(vector, codes);
+    ByteBuffer codes(static_cast<uint64_t>(code_size_), allocator_);
+    quantizer_->EncodeOne(vector, codes.data);
     if (this->force_in_memory_) {
         force_in_memory_io_->Write(
-            codes, code_size_, static_cast<uint64_t>(idx) * static_cast<uint64_t>(code_size_));
+            codes.data, code_size_, static_cast<uint64_t>(idx) * static_cast<uint64_t>(code_size_));
     } else {
         io_->Write(
-            codes, code_size_, static_cast<uint64_t>(idx) * static_cast<uint64_t>(code_size_));
+            codes.data, code_size_, static_cast<uint64_t>(idx) * static_cast<uint64_t>(code_size_));
     }
-    allocator_->Deallocate(codes);
 }
 
 template <typename QuantTmpl, typename IOTmpl>
@@ -254,17 +258,22 @@ FlattenDataCell<QuantTmpl, IOTmpl>::BatchInsertVector(const float* vectors,
         ByteBuffer codes(static_cast<uint64_t>(count) * static_cast<uint64_t>(code_size_),
                          allocator_);
         quantizer_->EncodeBatch(vectors, codes.data, count);
+        uint64_t cur_count;
+        {
+            std::lock_guard lock(mutex_);
+            cur_count = total_count_;
+            total_count_ += count;
+        }
         if (this->force_in_memory_) {
             force_in_memory_io_->Write(
                 codes.data,
                 static_cast<uint64_t>(count) * static_cast<uint64_t>(code_size_),
-                static_cast<uint64_t>(total_count_) * static_cast<uint64_t>(code_size_));
+                cur_count * static_cast<uint64_t>(code_size_));
         } else {
             io_->Write(codes.data,
                        static_cast<uint64_t>(count) * static_cast<uint64_t>(code_size_),
-                       static_cast<uint64_t>(total_count_) * static_cast<uint64_t>(code_size_));
+                       cur_count * static_cast<uint64_t>(code_size_));
         }
-        total_count_ += count;
     } else {
         auto dim = quantizer_->GetDim();
         for (int64_t i = 0; i < count; ++i) {

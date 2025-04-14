@@ -20,6 +20,7 @@
 #include "data_cell/flatten_interface.h"
 #include "data_cell/graph_interface.h"
 #include "index/index_common_param.h"
+#include "index/iterator_filter.h"
 #include "lock_strategy.h"
 #include "utils/visited_list.h"
 
@@ -53,6 +54,14 @@ public:
            const float* query,
            const InnerSearchParam& inner_search_param) const;
 
+    virtual MaxHeap
+    Search(const GraphInterfacePtr& graph,
+           const FlattenInterfacePtr& flatten,
+           const VisitedListPtr& vl,
+           const float* query,
+           const InnerSearchParam& inner_search_param,
+           IteratorFilterContext* iter_ctx) const;
+
 private:
     // rid means the neighbor's rank (e.g., the first neighbor's rid == 0)
     //  id means the neighbor's  id  (e.g., the first neighbor's  id == 12345)
@@ -63,7 +72,8 @@ private:
           const FilterPtr& filter,
           float skip_ratio,
           Vector<InnerIdType>& to_be_visited_rid,
-          Vector<InnerIdType>& to_be_visited_id) const;
+          Vector<InnerIdType>& to_be_visited_id,
+          Vector<InnerIdType>& neighbors) const;
 
     template <InnerSearchMode mode = KNN_SEARCH>
     MaxHeap
@@ -73,12 +83,21 @@ private:
                 const float* query,
                 const InnerSearchParam& inner_search_param) const;
 
+    template <InnerSearchMode mode = KNN_SEARCH>
+    MaxHeap
+    search_impl(const GraphInterfacePtr& graph,
+                const FlattenInterfacePtr& flatten,
+                const VisitedListPtr& vl,
+                const float* query,
+                const InnerSearchParam& inner_search_param,
+                IteratorFilterContext* iter_ctx) const;
+
 private:
     Allocator* allocator_{nullptr};
 
     MutexArrayPtr mutex_array_{nullptr};
 
-    uint32_t prefetch_jump_visit_size_{1};
+    uint32_t prefetch_jump_visit_size_{3};
 };
 
 using BasicSearcherPtr = std::shared_ptr<BasicSearcher>;

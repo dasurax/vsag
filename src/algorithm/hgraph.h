@@ -29,6 +29,7 @@
 #include "hgraph_parameter.h"
 #include "impl/basic_searcher.h"
 #include "index/index_common_param.h"
+#include "index/iterator_filter.h"
 #include "index_feature_list.h"
 #include "inner_index_interface.h"
 #include "lock_strategy.h"
@@ -62,6 +63,9 @@ public:
         return this->init_features();
     }
 
+    void
+    Train(const DatasetPtr& base) override;
+
     std::vector<int64_t>
     Build(const DatasetPtr& data) override;
 
@@ -73,6 +77,14 @@ public:
               int64_t k,
               const std::string& parameters,
               const FilterPtr& filter) const override;
+
+    [[nodiscard]] DatasetPtr
+    KnnSearch(const DatasetPtr& query,
+              int64_t k,
+              const std::string& parameters,
+              const FilterPtr& filter,
+              IteratorContext*& iter_ctx,
+              bool is_last_filter) const override;
 
     [[nodiscard]] DatasetPtr
     RangeSearch(const DatasetPtr& query,
@@ -89,7 +101,7 @@ public:
 
     int64_t
     GetNumElements() const override {
-        return this->basic_flatten_codes_->TotalCount();
+        return this->total_count_;
     }
 
     uint64_t
@@ -107,6 +119,9 @@ public:
     DatasetPtr
     CalDistanceById(const float* query, const int64_t* ids, int64_t count) const override;
 
+    std::pair<int64_t, int64_t>
+    GetMinAndMaxId() const override;
+
     void
     GetExtraInfoByIds(const int64_t* ids, int64_t count, char* extra_infos) const override;
 
@@ -117,15 +132,30 @@ public:
     }
 
 private:
-    inline int
+    int
     get_random_level() {
         std::uniform_real_distribution<double> distribution(0.0, 1.0);
         double r = -log(distribution(level_generator_)) * mult_;
-        return (int)r;
+        return static_cast<int>(r);
+    }
+
+    Vector<InnerIdType>
+    get_unique_inner_ids(InnerIdType count) {
+        auto start = static_cast<InnerIdType>(this->total_count_);
+        Vector<InnerIdType> ret(count, this->allocator_);
+        if (ret.size() != count) {
+            throw VsagException(ErrorType::NO_ENOUGH_MEMORY, "allocate memory failed");
+        }
+        std::iota(ret.begin(), ret.end(), start);
+        this->total_count_ += count;
+        return ret;
     }
 
     void
-    hnsw_add(const DatasetPtr& data);
+    add_one_point(const float* data, int level, InnerIdType id);
+
+    void
+    graph_add_one(const float* data, int level, InnerIdType inner_id);
 
     void
     resize(uint64_t new_size);
@@ -139,28 +169,23 @@ private:
                      const GraphInterfacePtr& graph,
                      const FlattenInterfacePtr& flatten,
                      InnerSearchParam& inner_search_param) const;
+
+    template <InnerSearchMode mode = InnerSearchMode::KNN_SEARCH>
+    MaxHeap
+    search_one_graph(const float* query,
+                     const GraphInterfacePtr& graph,
+                     const FlattenInterfacePtr& flatten,
+                     InnerSearchParam& inner_search_param,
+                     IteratorFilterContext* iter_ctx) const;
+
     void
     serialize_basic_info(StreamWriter& writer) const;
 
     void
     deserialize_basic_info(StreamReader& reader);
 
-    inline LabelType
-    get_label_by_id(InnerIdType inner_id) const {
-        std::shared_lock<std::shared_mutex> lock(this->label_lookup_mutex_);
-        // the inner_id is guarantee in label_lookup
-        return this->label_table_->GetLabelById(inner_id);
-    }
-
-    void
-    add_one_point(const float* data, int level, InnerIdType id);
-
     void
     init_features();
-
-    Vector<DatasetPtr>
-    split_dataset_by_duplicate_label(const DatasetPtr& dataset,
-                                     std::vector<LabelType>& failed_ids) const;
 
     void
     reorder(const float* query,
@@ -179,21 +204,20 @@ private:
 
     BasicSearcherPtr searcher_;
 
-    int64_t dim_{0};
-    MetricType metric_{MetricType::METRIC_TYPE_L2SQR};
-
     std::default_random_engine level_generator_{2021};
     double mult_{1.0};
 
     InnerIdType entry_point_id_{std::numeric_limits<InnerIdType>::max()};
-    uint64_t max_level_{0};
 
     uint64_t ef_construct_{400};
-    mutable std::shared_mutex global_mutex_;
+
+    uint64_t total_count_{0};
 
     std::shared_ptr<VisitedListPool> pool_{nullptr};
 
+    mutable std::shared_mutex global_mutex_;
     mutable MutexArrayPtr neighbors_mutex_;
+    mutable std::shared_mutex add_mutex_;
 
     std::shared_ptr<SafeThreadPool> build_pool_{nullptr};
     uint64_t build_thread_count_{100};

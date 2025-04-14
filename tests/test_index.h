@@ -95,6 +95,13 @@ protected:
                   bool expected_success = true);
 
     static void
+    TestKnnSearchIter(const IndexPtr& index,
+                      const TestDatasetPtr& dataset,
+                      const std::string& search_param,
+                      float expected_recall = 0.99,
+                      bool expected_success = true);
+
+    static void
     TestSearchWithDirtyVector(const IndexPtr& index,
                               const TestDatasetPtr& dataset,
                               const std::string& search_param,
@@ -117,12 +124,21 @@ protected:
                      bool support_filter_obj = false);
 
     static void
-    TestCalcDistanceById(const IndexPtr& index, const TestDatasetPtr& dataset, float error = 1e-5);
+    TestCalcDistanceById(const IndexPtr& index,
+                         const TestDatasetPtr& dataset,
+                         float error = 1e-5,
+                         bool expected_success = true);
 
     static void
     TestBatchCalcDistanceById(const IndexPtr& index,
                               const TestDatasetPtr& dataset,
-                              float error = 1e-5);
+                              float error = 1e-5,
+                              bool expected_success = true);
+
+    static void
+    TestGetMinAndMaxId(const IndexPtr& index,
+                       const TestDatasetPtr& dataset,
+                       bool expected_success = true);
 
     static void
     TestSerializeFile(const IndexPtr& index_from,
@@ -173,14 +189,9 @@ protected:
                        const TestDatasetPtr& dataset);
 
     static void
-    TestCheckIdExist(const IndexPtr& index, const TestDatasetPtr& dataset);
-
-    static void
-    TestSearchWithExtraInfo(const IndexPtr& index,
-                            const TestDatasetPtr& dataset,
-                            const std::string& search_param,
-                            int64_t extra_info_size,
-                            float expected_recall = 0.99);
+    TestCheckIdExist(const IndexPtr& index,
+                     const TestDatasetPtr& dataset,
+                     bool expected_success = true);
 
     static void
     TestGetExtraInfoById(const IndexPtr& index,

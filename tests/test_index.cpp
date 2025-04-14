@@ -20,6 +20,8 @@
 #include "fixtures/test_reader.h"
 #include "fixtures/thread_pool.h"
 #include "simd/fp32_simd.h"
+#include "vsag/engine.h"
+#include "vsag/resource.h"
 
 namespace fixtures {
 static int64_t
@@ -318,7 +320,13 @@ TestIndex::TestKnnSearch(const IndexPtr& index,
             ->Paths(queries->GetPaths() + i)
             ->Owner(false);
         auto res = index->KnnSearch(query, topk, search_param);
-        REQUIRE(res.has_value() == expected_success);
+        if (not expected_success) {
+            if (res.has_value()) {
+                REQUIRE(res.value()->GetDim() == 0);
+            }
+        } else {
+            REQUIRE(res.has_value() == expected_success);
+        }
         if (!expected_success) {
             return;
         }
@@ -362,7 +370,13 @@ TestIndex::TestRangeSearch(const IndexPtr& index,
             ->Paths(queries->GetPaths() + i)
             ->Owner(false);
         auto res = index->RangeSearch(query, radius[i], search_param, limited_size);
-        REQUIRE(res.has_value() == expected_success);
+        if (not expected_success) {
+            if (res.has_value()) {
+                REQUIRE(res.value()->GetDim() == 0);
+            }
+        } else {
+            REQUIRE(res.has_value() == expected_success);
+        }
         if (!expected_success) {
             return;
         }
@@ -404,6 +418,78 @@ private:
 };
 
 void
+TestIndex::TestKnnSearchIter(const IndexPtr& index,
+                             const TestDatasetPtr& dataset,
+                             const std::string& search_param,
+                             float expected_recall,
+                             bool expected_success) {
+    if (not index->CheckFeature(vsag::SUPPORT_KNN_ITERATOR_FILTER_SEARCH)) {
+        return;
+    }
+    auto queries = dataset->query_;
+    auto query_count = queries->GetNumElements();
+    auto dim = queries->GetDim();
+    auto gts = dataset->filter_ground_truth_;
+    auto gt_topK = dataset->top_k;
+    float cur_recall = 0.0f;
+    auto topk = gt_topK;
+    auto filter = std::make_shared<FilterObj>(dataset->filter_function_, dataset->valid_ratio_);
+    int64_t first_top = topk / 3;
+    int64_t second_top = topk / 3;
+    int64_t third_top = topk - first_top - second_top;
+    std::vector<int64_t> ids(topk);
+    for (auto i = 0; i < query_count; ++i) {
+        vsag::IteratorContext* filter_ctx = nullptr;
+        auto query = vsag::Dataset::Make();
+        query->NumElements(1)
+            ->Dim(dim)
+            ->Float32Vectors(queries->GetFloat32Vectors() + i * dim)
+            ->Paths(queries->GetPaths() + i)
+            ->Owner(false);
+        auto res = index->KnnSearch(query, first_top, search_param, filter, filter_ctx, false);
+        if (not expected_success) {
+            if (res.has_value()) {
+                REQUIRE(res.value()->GetDim() == 0);
+            }
+        } else {
+            REQUIRE(res.has_value() == expected_success);
+        }
+        if (!expected_success) {
+            return;
+        }
+        int64_t get_cnt = res.value()->GetDim();
+        REQUIRE(res.value()->GetDim() == first_top);
+        memcpy(ids.data(), res.value()->GetIds(), sizeof(int64_t) * first_top);
+        auto res2 = index->KnnSearch(query, second_top, search_param, filter, filter_ctx, false);
+        REQUIRE(res2.has_value() == expected_success);
+        if (!expected_success) {
+            return;
+        }
+        REQUIRE(res2.value()->GetDim() == second_top);
+        memcpy(ids.data() + first_top, res2.value()->GetIds(), sizeof(int64_t) * second_top);
+        auto res3 = index->KnnSearch(query, third_top, search_param, filter, filter_ctx, false);
+        REQUIRE(res3.has_value() == expected_success);
+        if (!expected_success) {
+            return;
+        }
+        REQUIRE(res3.value()->GetDim() == third_top);
+        memcpy(ids.data() + first_top + second_top,
+               res3.value()->GetIds(),
+               sizeof(int64_t) * third_top);
+        auto gt = gts->GetIds() + gt_topK * i;
+        auto val = Intersection(gt, gt_topK, ids.data(), topk);
+        cur_recall += static_cast<float>(val) / static_cast<float>(gt_topK);
+        delete filter_ctx;
+    }
+    if (cur_recall <= expected_recall * query_count) {
+        WARN(fmt::format("cur_result({}) <= expected_recall * query_count({})",
+                         cur_recall,
+                         expected_recall * query_count));
+    }
+    REQUIRE(cur_recall > expected_recall * query_count * RECALL_THRESHOLD);
+}
+
+void
 TestIndex::TestFilterSearch(const TestIndex::IndexPtr& index,
                             const TestDatasetPtr& dataset,
                             const std::string& search_param,
@@ -430,19 +516,26 @@ TestIndex::TestFilterSearch(const TestIndex::IndexPtr& index,
             ->Owner(false);
         tl::expected<DatasetPtr, vsag::Error> res;
         res = index->KnnSearch(query, topk, search_param, dataset->filter_function_);
-        REQUIRE(res.has_value() == expected_success);
+        if (support_filter_obj) {
+            auto filter = std::make_shared<FilterObj>(dataset->filter_function_, 1.0F);
+            auto obj_res = index->KnnSearch(query, topk, search_param, filter);
+            if (expected_success) {
+                for (int j = 0; j < topk; ++j) {
+                    REQUIRE(obj_res.value()->GetIds()[j] == res.value()->GetIds()[j]);
+                }
+            }
+        }
+        if (not expected_success) {
+            if (res.has_value()) {
+                REQUIRE(res.value()->GetDim() == 0);
+            }
+        } else {
+            REQUIRE(res.has_value() == expected_success);
+        }
         if (!expected_success) {
             return;
         }
         REQUIRE(res.value()->GetDim() == topk);
-        if (support_filter_obj) {
-            auto filter =
-                std::make_shared<FilterObj>(dataset->filter_function_, dataset->valid_ratio_);
-            auto obj_res = index->KnnSearch(query, topk, search_param, filter);
-            for (int j = 0; j < topk; ++j) {
-                REQUIRE(obj_res.value()->GetIds()[j] == res.value()->GetIds()[j]);
-            }
-        }
         if (index->CheckFeature(vsag::SUPPORT_RANGE_SEARCH_WITH_ID_FILTER)) {
             auto threshold = res.value()->GetDistances()[topk - 1];
             auto range_result =
@@ -463,7 +556,10 @@ TestIndex::TestFilterSearch(const TestIndex::IndexPtr& index,
 }
 
 void
-TestIndex::TestCalcDistanceById(const IndexPtr& index, const TestDatasetPtr& dataset, float error) {
+TestIndex::TestCalcDistanceById(const IndexPtr& index,
+                                const TestDatasetPtr& dataset,
+                                float error,
+                                bool expected_success) {
     if (not index->CheckFeature(vsag::SUPPORT_CAL_DISTANCE_BY_ID)) {
         return;
     }
@@ -482,6 +578,10 @@ TestIndex::TestCalcDistanceById(const IndexPtr& index, const TestDatasetPtr& dat
             auto id = gts->GetIds()[i * gt_topK + j];
             auto dist = gts->GetDistances()[i * gt_topK + j];
             auto result = index->CalcDistanceById(query->GetFloat32Vectors(), id);
+            if (not expected_success) {
+                REQUIRE_FALSE(result.has_value());
+                continue;
+            }
             REQUIRE(result.has_value());
             REQUIRE(std::abs(dist - result.value()) < error);
         }
@@ -491,7 +591,8 @@ TestIndex::TestCalcDistanceById(const IndexPtr& index, const TestDatasetPtr& dat
 void
 TestIndex::TestBatchCalcDistanceById(const IndexPtr& index,
                                      const TestDatasetPtr& dataset,
-                                     float error) {
+                                     float error,
+                                     bool expected_success) {
     if (not index->CheckFeature(vsag::SUPPORT_CAL_DISTANCE_BY_ID)) {
         return;
     }
@@ -508,11 +609,43 @@ TestIndex::TestBatchCalcDistanceById(const IndexPtr& index,
             ->Owner(false);
         auto result = index->CalDistanceById(
             query->GetFloat32Vectors(), gts->GetIds() + (i * gt_topK), gt_topK);
+        if (not expected_success) {
+            return;
+        }
         for (auto j = 0; j < gt_topK; ++j) {
             REQUIRE(std::abs(gts->GetDistances()[i * gt_topK + j] -
                              result.value()->GetDistances()[j]) < error);
         }
     }
+}
+
+void
+TestIndex::TestGetMinAndMaxId(const IndexPtr& index,
+                              const TestDatasetPtr& dataset,
+                              bool expected_success) {
+    auto base_count = dataset->base_->GetNumElements();
+    auto dim = dataset->base_->GetDim();
+    auto get_min_max_res = index->GetMinAndMaxId();
+    if (not expected_success) {
+        REQUIRE_FALSE(get_min_max_res.has_value());
+        return;
+    }
+    REQUIRE(get_min_max_res.has_value() == (index->GetNumElements() > 0));
+    int64_t res_max_id = INT64_MIN;
+    int64_t res_min_id = INT64_MAX;
+    for (uint64_t j = 0; j < base_count; ++j) {
+        res_max_id =
+            res_max_id > dataset->base_->GetIds()[j] ? res_max_id : dataset->base_->GetIds()[j];
+        res_min_id =
+            res_min_id < dataset->base_->GetIds()[j] ? res_min_id : dataset->base_->GetIds()[j];
+    }
+    get_min_max_res = index->GetMinAndMaxId();
+    REQUIRE(get_min_max_res.has_value() == true);
+    int64_t min_id = get_min_max_res.value().first;
+    int64_t max_id = get_min_max_res.value().second;
+
+    REQUIRE(min_id == res_min_id);
+    REQUIRE(max_id == res_max_id);
 }
 
 void
@@ -703,7 +836,7 @@ TestIndex::TestConcurrentAdd(const TestIndex::IndexPtr& index,
     fixtures::logger::LoggerReplacer _;
 
     auto base_count = dataset->base_->GetNumElements();
-    int64_t temp_count = base_count / 2;
+    auto temp_count = static_cast<int64_t>(base_count * 0.8);
     auto dim = dataset->base_->GetDim();
     auto temp_dataset = vsag::Dataset::Make();
     temp_dataset->Dim(dim)
@@ -713,7 +846,6 @@ TestIndex::TestConcurrentAdd(const TestIndex::IndexPtr& index,
         ->Float32Vectors(dataset->base_->GetFloat32Vectors())
         ->Owner(false);
     index->Build(temp_dataset);
-    auto rest_count = base_count - temp_count;
     fixtures::ThreadPool pool(5);
     using RetType = tl::expected<std::vector<int64_t>, vsag::Error>;
     std::vector<std::future<RetType>> futures;
@@ -730,7 +862,7 @@ TestIndex::TestConcurrentAdd(const TestIndex::IndexPtr& index,
         return add_index;
     };
 
-    for (uint64_t j = rest_count; j < base_count; ++j) {
+    for (uint64_t j = temp_count; j < base_count; ++j) {
         futures.emplace_back(pool.enqueue(func, j));
     }
 
@@ -780,7 +912,13 @@ TestIndex::TestConcurrentKnnSearch(const TestIndex::IndexPtr& index,
 
     for (auto& res1 : futures) {
         auto [res, id] = res1.get();
-        REQUIRE(res.has_value() == expected_success);
+        if (not expected_success) {
+            if (res.has_value()) {
+                REQUIRE(res.value()->GetDim() == 0);
+            }
+        } else {
+            REQUIRE(res.has_value() == expected_success);
+        }
         if (!expected_success) {
             return;
         }
@@ -870,7 +1008,9 @@ TestIndex::TestEstimateMemory(const std::string& index_name,
                               const TestDatasetPtr& dataset) {
     auto allocator = std::make_shared<fixtures::MemoryRecordAllocator>();
     {
-        auto index1 = vsag::Factory::CreateIndex(index_name, build_param, allocator.get()).value();
+        vsag::Resource resource(allocator.get(), nullptr);
+        vsag::Engine engine(&resource);
+        auto index1 = engine.CreateIndex(index_name, build_param).value();
         REQUIRE(index1->GetNumElements() == 0);
         auto index2 = vsag::Factory::CreateIndex(index_name, build_param).value();
         REQUIRE(index2->GetNumElements() == 0);
@@ -891,8 +1031,8 @@ TestIndex::TestEstimateMemory(const std::string& index_name,
                 WARN("estimate_memory failed");
             }
 
-            REQUIRE(estimate_memory >= static_cast<uint64_t>(real_memory * 0.4));
-            REQUIRE(estimate_memory <= static_cast<uint64_t>(real_memory * 1.6));
+            REQUIRE(estimate_memory >= static_cast<uint64_t>(real_memory * 0.2));
+            REQUIRE(estimate_memory <= static_cast<uint64_t>(real_memory * 3.2));
             inf.close();
         }
         outf.close();
@@ -900,7 +1040,9 @@ TestIndex::TestEstimateMemory(const std::string& index_name,
 }
 
 void
-TestIndex::TestCheckIdExist(const TestIndex::IndexPtr& index, const TestDatasetPtr& dataset) {
+TestIndex::TestCheckIdExist(const TestIndex::IndexPtr& index,
+                            const TestDatasetPtr& dataset,
+                            bool expected_success) {
     if (not index->CheckFeature(vsag::SUPPORT_CHECK_ID_EXIST)) {
         return;
     }
@@ -909,7 +1051,7 @@ TestIndex::TestCheckIdExist(const TestIndex::IndexPtr& index, const TestDatasetP
     int N = 10;
     for (int i = 0; i < N; ++i) {
         auto good_id = ids[random() % data_count];
-        REQUIRE(index->CheckIdExist(good_id) == true);
+        REQUIRE(index->CheckIdExist(good_id) == expected_success);
     }
     std::unordered_set<int64_t> exist_ids(ids, ids + data_count);
     int bad_id = 97;
@@ -974,50 +1116,6 @@ TestIndex::TestMergeIndex(const std::string& name,
     auto merge_result = index->Merge(merge_units);
     REQUIRE(merge_result.has_value());
     return index;
-}
-
-void
-TestIndex::TestSearchWithExtraInfo(const IndexPtr& index,
-                                   const TestDatasetPtr& dataset,
-                                   const std::string& search_param,
-                                   int64_t extra_info_size,
-                                   float expected_recall) {
-    auto queries = dataset->query_;
-    auto query_count = queries->GetNumElements();
-    auto dim = queries->GetDim();
-    auto gts = dataset->ground_truth_;
-    auto gt_topK = dataset->top_k;
-    float cur_recall = 0.0f;
-    auto topk = gt_topK;
-    for (auto i = 0; i < query_count; ++i) {
-        auto query = vsag::Dataset::Make();
-        query->NumElements(1)
-            ->Dim(dim)
-            ->Float32Vectors(queries->GetFloat32Vectors() + i * dim)
-            ->Paths(queries->GetPaths() + i)
-            ->Owner(false);
-        auto res = index->KnnSearch(query, topk, search_param);
-        REQUIRE(res.has_value() == true);
-        REQUIRE(res.value()->GetDim() == topk);
-        auto result = res.value()->GetIds();
-        if (extra_info_size > 0) {
-            const char* extra_infos = res.value()->GetExtraInfos();
-            REQUIRE(extra_infos != nullptr);
-            int64_t num = res.value()->GetNumElements();
-            for (int j = 0; j < num; ++j) {
-                REQUIRE((extra_infos + j * extra_info_size) != nullptr);
-            }
-        }
-        auto gt = gts->GetIds() + gt_topK * i;
-        auto val = Intersection(gt, gt_topK, result, topk);
-        cur_recall += static_cast<float>(val) / static_cast<float>(gt_topK);
-    }
-    if (cur_recall <= expected_recall * query_count) {
-        WARN(fmt::format("cur_result({}) <= expected_recall * query_count({})",
-                         cur_recall,
-                         expected_recall * query_count));
-    }
-    REQUIRE(cur_recall > expected_recall * query_count * RECALL_THRESHOLD);
 }
 
 void

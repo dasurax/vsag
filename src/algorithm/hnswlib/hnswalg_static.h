@@ -286,6 +286,22 @@ public:
         return std::move(result);
     }
 
+    std::pair<int64_t, int64_t>
+    getMinAndMaxId() override {
+        int64_t min_id = INT64_MAX;
+        int64_t max_id = INT64_MIN;
+        std::unique_lock<std::mutex> lock_table(label_lookup_lock);
+        if (label_lookup_.size() == 0) {
+            throw std::runtime_error("Label map size is zero");
+        }
+        for (auto it = label_lookup_.begin(); it != label_lookup_.end(); ++it) {
+            max_id = it->first > max_id ? it->first : max_id;
+            min_id = it->first < min_id ? it->first : min_id;
+        }
+        lock_table.unlock();
+        return {min_id, max_id};
+    }
+
     void
     copyDataByLabel(LabelType label, void* data_point) override {
         std::unique_lock lock_table(label_lookup_lock);
@@ -784,14 +800,14 @@ public:
         while (queue_closest.size()) {
             if (return_list.size() >= M)
                 break;
-            std::pair<float, tableint> curent_pair = queue_closest.top();
-            float floato_query = -curent_pair.first;
+            std::pair<float, tableint> current_pair = queue_closest.top();
+            float floato_query = -current_pair.first;
             queue_closest.pop();
             bool good = true;
 
             for (std::pair<float, tableint> second_pair : return_list) {
                 float curdist = fstdistfunc_(getDataByInternalId(second_pair.second),
-                                             getDataByInternalId(curent_pair.second),
+                                             getDataByInternalId(current_pair.second),
                                              dist_func_param_);
                 if (curdist < floato_query) {
                     good = false;
@@ -799,12 +815,12 @@ public:
                 }
             }
             if (good) {
-                return_list.push_back(curent_pair);
+                return_list.push_back(current_pair);
             }
         }
 
-        for (std::pair<float, tableint> curent_pair : return_list) {
-            top_candidates.emplace(-curent_pair.first, curent_pair.second);
+        for (std::pair<float, tableint> current_pair : return_list) {
+            top_candidates.emplace(-current_pair.first, current_pair.second);
         }
     }
 
@@ -1450,7 +1466,9 @@ public:
               size_t k,
               uint64_t ef,
               const vsag::FilterPtr is_id_allowed = nullptr,
-              const float skip_ratio = 0.9f) const override {
+              const float skip_ratio = 0.9f,
+              vsag::IteratorFilterContext* iter_ctx = nullptr,
+              bool is_last_filter = false) const override {
         std::priority_queue<std::pair<float, LabelType>> result;
         if (cur_element_count_ == 0)
             return result;

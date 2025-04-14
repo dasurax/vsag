@@ -243,8 +243,8 @@ void
 ODescent::repair_no_in_edge() {
     Vector<int> in_edges_count(data_num_, 0, allocator_);
     for (int i = 0; i < data_num_; ++i) {
-        for (auto& neigbor : graph_[i].neighbors) {
-            in_edges_count[neigbor.id]++;
+        for (auto& neighbor : graph_[i].neighbors) {
+            in_edges_count[neighbor.id]++;
         }
     }
 
@@ -260,8 +260,8 @@ ODescent::repair_no_in_edge() {
                need_replace_loc < odescent_param_->max_degree) {
             uint32_t need_replace_id = link[need_replace_loc].id;
             bool has_connect = false;
-            for (auto& neigbor : graph_[need_replace_id].neighbors) {
-                if (neigbor.id == i) {
+            for (auto& neighbor : graph_[need_replace_id].neighbors) {
+                if (neighbor.id == i) {
                     has_connect = true;
                     break;
                 }
@@ -335,13 +335,20 @@ ODescent::prune_graph() {
 
 void
 ODescent::parallelize_task(const std::function<void(int64_t, int64_t)>& task) {
-    Vector<std::future<void>> futures(allocator_);
-    for (int64_t i = 0; i < data_num_; i += odescent_param_->block_size) {
-        int64_t end = std::min(i + odescent_param_->block_size, data_num_);
-        futures.push_back(thread_pool_->GeneralEnqueue(task, i, end));
-    }
-    for (auto& future : futures) {
-        future.get();
+    if (this->thread_pool_ != nullptr) {
+        Vector<std::future<void>> futures(allocator_);
+        for (int64_t i = 0; i < data_num_; i += odescent_param_->block_size) {
+            int64_t end = std::min(i + odescent_param_->block_size, data_num_);
+            futures.push_back(thread_pool_->GeneralEnqueue(task, i, end));
+        }
+        for (auto& future : futures) {
+            future.get();
+        }
+    } else {
+        for (int64_t i = 0; i < data_num_; i += odescent_param_->block_size) {
+            int64_t end = std::min(i + odescent_param_->block_size, data_num_);
+            task(i, end);
+        }
     }
 }
 

@@ -17,6 +17,7 @@
 #include <shared_mutex>
 #include <vector>
 
+#include "dataset_impl.h"
 #include "index/index_common_param.h"
 #include "index_feature_list.h"
 #include "label_table.h"
@@ -30,7 +31,7 @@
 namespace vsag {
 class InnerIndexInterface {
 public:
-    explicit InnerIndexInterface(const ParamPtr& index_param, const IndexCommonParam& common_param);
+    explicit InnerIndexInterface(ParamPtr index_param, const IndexCommonParam& common_param);
 
     virtual ~InnerIndexInterface() = default;
 
@@ -63,6 +64,9 @@ public:
     Deserialize(StreamReader& reader) = 0;
 
 public:
+    virtual void
+    Train(const DatasetPtr& base){};
+
     virtual std::vector<int64_t>
     Build(const DatasetPtr& base);
 
@@ -77,6 +81,16 @@ public:
               int64_t k,
               const std::string& parameters,
               const std::function<bool(int64_t)>& filter) const;
+
+    [[nodiscard]] virtual DatasetPtr
+    KnnSearch(const DatasetPtr& query,
+              int64_t k,
+              const std::string& parameters,
+              const FilterPtr& filter,
+              IteratorContext*& iter_ctx,
+              bool is_last_filter) const {
+        throw std::runtime_error("Index doesn't support new filter");
+    };
 
     [[nodiscard]] virtual DatasetPtr
     RangeSearch(const DatasetPtr& query,
@@ -141,6 +155,11 @@ public:
 
     virtual DatasetPtr
     CalDistanceById(const float* query, const int64_t* ids, int64_t count) const;
+
+    virtual std::pair<int64_t, int64_t>
+    GetMinAndMaxId() const {
+        throw std::runtime_error("Index doesn't support GetMinAndMaxId");
+    }
 
     virtual void
     GetExtraInfoByIds(const int64_t* ids, int64_t count, char* extra_infos) const {
@@ -211,6 +230,14 @@ public:
     IndexFeatureListPtr index_feature_list_{nullptr};
 
     mutable std::shared_mutex label_lookup_mutex_{};  // lock for label_lookup_ & labels_
+
+    const ParamPtr create_param_ptr_{nullptr};
+
+    int64_t dim_{0};
+
+    MetricType metric_{MetricType::METRIC_TYPE_L2SQR};
+
+    DataTypes data_type_{DataTypes::DATA_TYPE_FLOAT};
 };
 
 using InnerIndexPtr = std::shared_ptr<InnerIndexInterface>;
