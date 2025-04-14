@@ -22,8 +22,8 @@ main(int argc, char** argv) {
     vsag::init();
 
     /******************* Prepare Base Dataset *****************/
-    int64_t num_vectors = 1000000;
-    int64_t dim = 960;
+    int64_t num_vectors = 10000;
+    int64_t dim = 128;
     std::vector<int64_t> ids(num_vectors);
     std::vector<float> datas(num_vectors * dim);
     std::mt19937 rng(47);
@@ -46,22 +46,16 @@ main(int argc, char** argv) {
     {
         "dtype": "float32",
         "metric_type": "l2",
-        "dim": 960,
+        "dim": 128,
         "index_param": {
             "buckets_count": 50,
-            "base_quantization_type": "fp32",
-            "coarse_cluster_count": 100,
-            "fine_cluster_count": 100,
-            "filter_nsq": 32,
-            "train_points_count": 500000,
-            "pq_train_points_count": 100000
+            "base_quantization_type": "fp32"
         }
     }
     )";
-    auto index = vsag::Factory::CreateIndex("ivf_pq", ivf_build_params).value();
+    auto index = vsag::Factory::CreateIndex("ivf", ivf_build_params).value();
 
     /******************* Build IVF Index *****************/
-
     if (auto build_result = index->Build(base); build_result.has_value()) {
         std::cout << "After Build(), Index IVF contains: " << index->GetNumElements() << std::endl;
     } else if (build_result.error().type == vsag::ErrorType::INTERNAL_ERROR) {
@@ -69,36 +63,19 @@ main(int argc, char** argv) {
         exit(-1);
     }
 
-    vsag::ReaderSet reader_set;
-    index->Deserialize(reader_set);
     /******************* Prepare Query Dataset *****************/
-    std::vector<float> query_vector(128);
+    std::vector<float> query_vector(dim);
     for (int64_t i = 0; i < dim; ++i) {
         query_vector[i] = distrib_real(rng);
     }
-
-    /*
-    std::string fn = "./queries_1000_960";
-    FILE* fvec_init = fopen(fn.c_str(), "rb");
-
-    int cur_dim = 0;
-    int ret = fread(&cur_dim, sizeof(int), 1, fvec_init);
-    
-    ret = fread((void*)(query_vector.data()), sizeof(float), cur_dim, fvec_init);
-    std::cout << "cur_dim: " << cur_dim << " " << ret << std::endl;
-    */
     auto query = vsag::Dataset::Make();
     query->NumElements(1)->Dim(dim)->Float32Vectors(query_vector.data())->Owner(false);
 
     /******************* KnnSearch For IVF Index *****************/
     auto ivf_search_parameters = R"(
     {
-        "ivf_pq": {
-            "scan_buckets_count": 10,
-            "search_coarse_count": 10,
-            "search_fine_count": 100,
-            "filter_topk": 200,
-            "window_size": 20
+        "ivf": {
+            "scan_buckets_count": 10
         }
     })";
     int64_t topk = 10;

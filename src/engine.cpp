@@ -23,7 +23,6 @@
 #include "algorithm/gno_imi.h"
 #include "algorithm/hgraph.h"
 #include "algorithm/ivf.h"
-#include "algorithm/ivf_pq.h"
 #include "algorithm/pyramid.h"
 #include "algorithm/pyramid_zparameters.h"
 #include "algorithm/sparse_index.h"
@@ -138,13 +137,13 @@ Engine::CreateIndex(const std::string& origin_name, const std::string& parameter
             return pyramid_index;
         } else if (name == INDEX_IVF_PQ) {
             logger::debug("created an ivf pq index");
-            JsonType ivf_pq_json;
+            JsonType gno_imi_json;
             if (parsed_params.contains(INDEX_PARAM)) {
-                ivf_pq_json = std::move(parsed_params[INDEX_PARAM]);
+                gno_imi_json = std::move(parsed_params[INDEX_PARAM]);
             }
-            auto ivf_pq_index =
-                std::make_shared<IndexImpl<IVFPQ> >(ivf_pq_json, index_common_params);
-            return ivf_pq_index;
+            auto gno_imi_index =
+                std::make_shared<IndexImpl<GNOIMI> >(gno_imi_json, index_common_params);
+            return gno_imi_index;
         } else if (name == INDEX_GNO_IMI) {
             logger::debug("created an gno-imi index");
             JsonType gno_imi_json;
