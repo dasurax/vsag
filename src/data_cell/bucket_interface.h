@@ -15,8 +15,8 @@
 
 #pragma once
 
+#include <iostream>
 #include <string>
-
 #include "bucket_datacell_parameter.h"
 #include "index/index_common_param.h"
 #include "quantization/computer.h"
@@ -83,12 +83,14 @@ public:
 
     virtual void
     Serialize(StreamWriter& writer) {
+        std::cout << "Serialize bi bucket_count_: " << this->bucket_count_ << std::endl;
         StreamWriter::WriteObj(writer, this->bucket_count_);
         StreamWriter::WriteObj(writer, this->code_size_);
     }
 
     virtual void
     Deserialize(StreamReader& reader) {
+        std::cout << "Deserialize bi bucket_count_: " << this->bucket_count_ << std::endl;
         StreamReader::ReadObj(reader, this->bucket_count_);
         StreamReader::ReadObj(reader, this->code_size_);
     }

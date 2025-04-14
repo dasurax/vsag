@@ -20,9 +20,13 @@
 #include <string>
 
 #include "algorithm/brute_force.h"
+#include "algorithm/gno_imi.h"
 #include "algorithm/hgraph.h"
 #include "algorithm/ivf.h"
 #include "algorithm/ivf_pq.h"
+#include "algorithm/pyramid.h"
+#include "algorithm/pyramid_zparameters.h"
+#include "algorithm/sparse_index.h"
 #include "common.h"
 #include "index/diskann.h"
 #include "index/diskann_zparameters.h"
@@ -30,8 +34,6 @@
 #include "index/hnsw_zparameters.h"
 #include "index/index_common_param.h"
 #include "index/index_impl.h"
-#include "index/pyramid.h"
-#include "index/pyramid_zparameters.h"
 #include "resource_owner_wrapper.h"
 #include "safe_thread_pool.h"
 #include "typing.h"
@@ -97,7 +99,7 @@ Engine::CreateIndex(const std::string& origin_name, const std::string& parameter
             if (parsed_params.contains(INDEX_PARAM)) {
                 json = std::move(parsed_params[INDEX_PARAM]);
             }
-            auto brute_force = std::make_shared<IndexImpl<BruteForce>>(json, index_common_params);
+            auto brute_force = std::make_shared<IndexImpl<BruteForce> >(json, index_common_params);
             return brute_force;
         } else if (name == INDEX_DISKANN) {
             // read parameters from json, throw exception if not exists
@@ -115,7 +117,7 @@ Engine::CreateIndex(const std::string& origin_name, const std::string& parameter
                 hgraph_json = std::move(parsed_params[INDEX_PARAM]);
             }
             auto hgraph_index =
-                std::make_shared<IndexImpl<HGraph>>(hgraph_json, index_common_params);
+                std::make_shared<IndexImpl<HGraph> >(hgraph_json, index_common_params);
             return hgraph_index;
         } else if (name == INDEX_IVF) {
             logger::debug("created an ivf index");
@@ -123,25 +125,45 @@ Engine::CreateIndex(const std::string& origin_name, const std::string& parameter
             if (parsed_params.contains(INDEX_PARAM)) {
                 ivf_json = std::move(parsed_params[INDEX_PARAM]);
             }
-            auto ivf_index = std::make_shared<IndexImpl<IVF>>(ivf_json, index_common_params);
+            auto ivf_index = std::make_shared<IndexImpl<IVF> >(ivf_json, index_common_params);
             return ivf_index;
         } else if (name == INDEX_PYRAMID) {
             // read parameters from json, throw exception if not exists
             CHECK_ARGUMENT(parsed_params.contains(INDEX_PARAM),
                            fmt::format("parameters must contains {}", INDEX_PARAM));
             auto& pyramid_param_obj = parsed_params[INDEX_PARAM];
-            PyramidParameters pyramid_params;
-            pyramid_params.FromJson(pyramid_param_obj);
             logger::debug("created a pyramid index");
-            return std::make_shared<Pyramid>(pyramid_params, index_common_params);
+            auto pyramid_index =
+                std::make_shared<IndexImpl<Pyramid> >(pyramid_param_obj, index_common_params);
+            return pyramid_index;
         } else if (name == INDEX_IVF_PQ) {
             logger::debug("created an ivf pq index");
-            JsonType ivf_json;
+            JsonType ivf_pq_json;
             if (parsed_params.contains(INDEX_PARAM)) {
-                ivf_json = std::move(parsed_params[INDEX_PARAM]);
+                ivf_pq_json = std::move(parsed_params[INDEX_PARAM]);
             }
-            auto ivf_index = std::make_shared<IndexImpl<IVFPQ>>(ivf_json, index_common_params);
-            return ivf_index;
+            auto ivf_pq_index =
+                std::make_shared<IndexImpl<IVFPQ> >(ivf_pq_json, index_common_params);
+            return ivf_pq_index;
+        } else if (name == INDEX_GNO_IMI) {
+            logger::debug("created an gno-imi index");
+            JsonType gno_imi_json;
+            if (parsed_params.contains(INDEX_PARAM)) {
+                gno_imi_json = std::move(parsed_params[INDEX_PARAM]);
+            }
+            auto gno_imi_index =
+                std::make_shared<IndexImpl<GNOIMI> >(gno_imi_json, index_common_params);
+            return gno_imi_index;
+
+        } else if (name == INDEX_SPARSE) {
+            logger::debug("created a sparse index");
+            JsonType sparse_json;
+            if (parsed_params.contains(INDEX_PARAM)) {
+                sparse_json = std::move(parsed_params[INDEX_PARAM]);
+            }
+            auto sparse_index =
+                std::make_shared<IndexImpl<SparseIndex> >(sparse_json, index_common_params);
+            return sparse_index;
         } else {
             LOG_ERROR_AND_RETURNS(
                 ErrorType::UNSUPPORTED_INDEX, "failed to create index(unsupported): ", name);

@@ -22,7 +22,7 @@
 #include "data_cell/graph_datacell_parameter.h"
 #include "data_cell/graph_interface.h"
 #include "impl/odescent_graph_parameter.h"
-#include "index_common_param.h"
+#include "index/index_common_param.h"
 #include "typing.h"
 #include "vsag/index.h"
 
@@ -40,6 +40,9 @@ public:
     GraphInterfaceParamPtr graph_param{nullptr};
     FlattenDataCellParamPtr flatten_data_cell_param{nullptr};
     ODescentParameterPtr odescent_param{nullptr};
+
+    std::vector<int32_t> no_build_levels;
+    uint64_t ef_construction{100};
 };
 
 class PyramidSearchParameters {
@@ -53,5 +56,7 @@ public:
 private:
     PyramidSearchParameters() = default;
 };
+
+using PyramidParamPtr = std::shared_ptr<PyramidParameters>;
 
 }  // namespace vsag

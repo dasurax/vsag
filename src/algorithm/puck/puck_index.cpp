@@ -2164,7 +2164,6 @@ int PuckIndex::search_nearest_filter_points(SearchContext* context, const float*
         PuckMaxHeap temp_heap(_conf.search_fine_count, temp_distance, temp_tag);
         size_t total_points = 0;
         for (uint32_t l = 0; l < _conf.search_coarse_count; ++l) {
-            
             int coarse_id = coarse_tag[l];
             FineCluster* cur_fine_cluster_list = _coarse_clusters[coarse_id].fine_cell_list;
             

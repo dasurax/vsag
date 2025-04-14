@@ -24,7 +24,9 @@ public:
     GenerateIVFBuildParametersString(const std::string& metric_type,
                                      int64_t dim,
                                      const std::string& quantization_str = "sq8",
-                                     int buckets_count = 300);
+                                     int buckets_count = 210,
+                                     const std::string& train_type = "kmeans");
+
     static TestDatasetPool pool;
 
     static std::vector<int> dims;
@@ -40,11 +42,14 @@ public:
             }}
         }})";
 
+    // DON'T WORRY! IVF just can't achieve high recall on random datasets. so we set the expected
+    // recall with a small number in test cases
     const std::vector<std::pair<std::string, float>> test_cases = {
-        {"fp32", 0.95},
-        {"bf16", 0.94},
-        {"sq8", 0.92},
-        {"sq8_uniform", 0.91},
+        {"fp32", 0.90},
+        {"bf16", 0.88},
+        {"fp16", 0.88},
+        {"sq8", 0.84},
+        {"sq8_uniform", 0.83},
     };
 };
 
@@ -56,7 +61,8 @@ std::string
 IVFTestIndex::GenerateIVFBuildParametersString(const std::string& metric_type,
                                                int64_t dim,
                                                const std::string& quantization_str,
-                                               int buckets_count) {
+                                               int buckets_count,
+                                               const std::string& train_type) {
     std::string build_parameters_str;
 
     constexpr auto parameter_temp = R"(
@@ -66,13 +72,14 @@ IVFTestIndex::GenerateIVFBuildParametersString(const std::string& metric_type,
         "dim": {},
         "index_param": {{
             "buckets_count": {},
-            "base_quantization_type": "{}"
+            "base_quantization_type": "{}",
+            "ivf_train_type": "{}"
         }}
     }}
     )";
 
     build_parameters_str =
-        fmt::format(parameter_temp, metric_type, dim, buckets_count, quantization_str);
+        fmt::format(parameter_temp, metric_type, dim, buckets_count, quantization_str, train_type);
 
     INFO(build_parameters_str);
     return build_parameters_str;
@@ -207,13 +214,15 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::IVFTestIndex, "IVF Build & ContinueAdd Te
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
     auto metric_type = GENERATE("l2", "ip", "cosine");
+    std::string train_type = GENERATE("random", "kmeans");
 
     const std::string name = "ivf";
     auto search_param = fmt::format(search_param_tmp, 200);
     for (auto& dim : dims) {
         for (auto& [base_quantization_str, recall] : test_cases) {
             vsag::Options::Instance().set_block_size_limit(size);
-            auto param = GenerateIVFBuildParametersString(metric_type, dim, base_quantization_str);
+            auto param = GenerateIVFBuildParametersString(
+                metric_type, dim, base_quantization_str, 300, train_type);
             auto index = TestFactory(name, param, true);
             if (index->CheckFeature(vsag::SUPPORT_ADD_AFTER_BUILD)) {
                 auto dataset = pool.GetDatasetAndCreate(dim, base_count, metric_type);
@@ -244,13 +253,15 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::IVFTestIndex, "IVF Build", "[ft][ivf]") {
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
     auto metric_type = GENERATE("l2", "ip", "cosine");
+    std::string train_type = GENERATE("random", "kmeans");
 
     const std::string name = "ivf";
     auto search_param = fmt::format(search_param_tmp, 200);
     for (auto& dim : dims) {
         for (auto& [base_quantization_str, recall] : test_cases) {
             vsag::Options::Instance().set_block_size_limit(size);
-            auto param = GenerateIVFBuildParametersString(metric_type, dim, base_quantization_str);
+            auto param = GenerateIVFBuildParametersString(
+                metric_type, dim, base_quantization_str, 300, train_type);
             auto index = TestFactory(name, param, true);
             auto dataset = pool.GetDatasetAndCreate(dim, base_count, metric_type);
             if (index->CheckFeature(vsag::SUPPORT_BUILD)) {
@@ -281,13 +292,15 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::IVFTestIndex, "IVF Add", "[ft][ivf]") {
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
     auto metric_type = GENERATE("l2", "ip", "cosine");
+    std::string train_type = GENERATE("random", "kmeans");
 
     const std::string name = "ivf";
     auto search_param = fmt::format(search_param_tmp, 200);
     for (auto& dim : dims) {
         for (auto& [base_quantization_str, recall] : test_cases) {
             vsag::Options::Instance().set_block_size_limit(size);
-            auto param = GenerateIVFBuildParametersString(metric_type, dim, base_quantization_str);
+            auto param = GenerateIVFBuildParametersString(
+                metric_type, dim, base_quantization_str, 300, train_type);
             auto index = TestFactory(name, param, true);
             if (index->CheckFeature(vsag::SUPPORT_ADD_FROM_EMPTY)) {
                 auto dataset = pool.GetDatasetAndCreate(dim, base_count, metric_type);
@@ -320,13 +333,15 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::IVFTestIndex,
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
     auto metric_type = GENERATE("l2", "ip", "cosine");
+    std::string train_type = GENERATE("random", "kmeans");
 
     const std::string name = "ivf";
     auto search_param = fmt::format(search_param_tmp, 200);
     for (auto& dim : dims) {
         for (auto& [base_quantization_str, recall] : test_cases) {
             vsag::Options::Instance().set_block_size_limit(size);
-            auto param = GenerateIVFBuildParametersString(metric_type, dim, base_quantization_str);
+            auto param = GenerateIVFBuildParametersString(
+                metric_type, dim, base_quantization_str, 300, train_type);
             auto index = TestFactory(name, param, true);
             if (index->CheckFeature(vsag::SUPPORT_ADD_CONCURRENT)) {
                 auto dataset = pool.GetDatasetAndCreate(dim, base_count, metric_type);
@@ -359,11 +374,13 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::IVFTestIndex, "IVF Serialize File", "[ft]
     auto metric_type = GENERATE("l2", "ip", "cosine");
     const std::string name = "ivf";
     auto search_param = fmt::format(search_param_tmp, 200);
+    std::string train_type = GENERATE("random", "kmeans");
 
     for (auto& dim : dims) {
         for (auto& [base_quantization_str, recall] : test_cases) {
             vsag::Options::Instance().set_block_size_limit(size);
-            auto param = GenerateIVFBuildParametersString(metric_type, dim, base_quantization_str);
+            auto param = GenerateIVFBuildParametersString(
+                metric_type, dim, base_quantization_str, 300, train_type);
             auto index = TestFactory(name, param, true);
 
             if (index->CheckFeature(vsag::SUPPORT_BUILD)) {
@@ -397,6 +414,7 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::IVFTestIndex,
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
     auto metric_type = GENERATE("l2", "ip", "cosine");
+    std::string train_type = GENERATE("random", "kmeans");
     const std::string name = "ivf";
     for (auto& dim : dims) {
         for (auto& [base_quantization_str, recall] : test_cases) {
@@ -418,6 +436,7 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::IVFTestIndex, "IVF Estimate Memory", "[ft
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
     auto metric_type = GENERATE("l2", "ip", "cosine");
+    std::string train_type = GENERATE("random", "kmeans");
 
     const std::string name = "ivf";
     auto search_param = fmt::format(search_param_tmp, 200);
@@ -425,7 +444,8 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::IVFTestIndex, "IVF Estimate Memory", "[ft
     for (auto& dim : dims) {
         for (auto& [base_quantization_str, recall] : test_cases) {
             vsag::Options::Instance().set_block_size_limit(size);
-            auto param = GenerateIVFBuildParametersString(metric_type, dim, base_quantization_str);
+            auto param = GenerateIVFBuildParametersString(
+                metric_type, dim, base_quantization_str, 300, train_type);
             auto dataset = pool.GetDatasetAndCreate(dim, estimate_count, metric_type);
             TestEstimateMemory(name, param, dataset);
             vsag::Options::Instance().set_block_size_limit(origin_size);

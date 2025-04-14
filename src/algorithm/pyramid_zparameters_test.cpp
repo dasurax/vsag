@@ -13,11 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "pyramid_zparameters.h"
+#include "algorithm/pyramid_zparameters.h"
 
 #include <catch2/catch_test_macros.hpp>
 
-#include "fixtures.h"
 #include "parameter_test.h"
 
 TEST_CASE("Pyramid Parameters Test", "[ut][PyramidParameters]") {
@@ -39,11 +38,40 @@ TEST_CASE("Pyramid Parameters Test", "[ut][PyramidParameters]") {
                 "quantization_params": {
                     "type": "fp32"
                 }
-            }
+            },
+            "build_levels": [0, 1, 4],
+            "ef_construction": 700
         }
     )";
     vsag::JsonType param_json = vsag::JsonType::parse(param_str);
     auto param = std::make_shared<vsag::PyramidParameters>();
     param->FromJson(param_json);
     vsag::ParameterTest::TestToJson(param);
+
+    SECTION("invalid build_levels") {
+        auto invalid_param_str1 = R"(
+        {
+            "odescent": {
+                "io_params": {
+                    "type": "memory_io"
+                },
+                "max_degree": 16
+            },
+            "build_levels": 2
+        }
+        )";
+        REQUIRE_THROWS(param->FromJson(invalid_param_str1));
+        auto invalid_param_str2 = R"(
+        {
+            "odescent": {
+                "io_params": {
+                    "type": "memory_io"
+                },
+                "max_degree": 16
+            },
+            "build_levels": [1,2, "hehehe"]
+        }
+        )";
+        REQUIRE_THROWS(param->FromJson(invalid_param_str2));
+    }
 }

@@ -21,9 +21,11 @@ extern const char* const INDEX_DISKANN;
 extern const char* const INDEX_HNSW;
 extern const char* const INDEX_FRESH_HNSW;
 extern const char* const INDEX_PYRAMID;
+extern const char* const INDEX_SPARSE;
 extern const char* const INDEX_BRUTE_FORCE;
 extern const char* const INDEX_IVF;
 extern const char* const INDEX_IVF_PQ;
+extern const char* const INDEX_GNO_IMI;
 extern const char* const DIM;
 extern const char* const NUM_ELEMENTS;
 extern const char* const IDS;
@@ -32,6 +34,9 @@ extern const char* const FLOAT32_VECTORS;
 extern const char* const SPARSE_VECTORS;
 extern const char* const INT8_VECTORS;
 extern const char* const DATASET_PATHS;
+extern const char* const EXTRA_INFOS;
+extern const char* const EXTRA_INFO_SIZE;
+
 extern const char* const HNSW_DATA;
 extern const char* const CONJUGATE_GRAPH_DATA;
 extern const char* const DISKANN_PQ;
@@ -115,9 +120,11 @@ extern const char* const SERIALIZE_MAGIC_NUM;
 extern const char* const SERIALIZE_VERSION;
 
 extern const char* const SQ4_UNIFORM_TRUNC_RATE;
+extern const char* const RABITQ_PCA_DIM;
 
 // hgraph params
 extern const char* const HGRAPH_USE_REORDER;
+extern const char* const HGRAPH_IGNORE_REORDER;
 extern const char* const HGRAPH_BASE_QUANTIZATION_TYPE;
 extern const char* const HGRAPH_GRAPH_MAX_DEGREE;
 extern const char* const HGRAPH_BUILD_EF_CONSTRUCTION;
@@ -129,11 +136,13 @@ extern const char* const HGRAPH_BASE_FILE_PATH;
 extern const char* const HGRAPH_PRECISE_IO_TYPE;
 extern const char* const HGRAPH_PRECISE_FILE_PATH;
 extern const char* const HGRAPH_PARAMETER_EF_RUNTIME;
+extern const char* const HGRAPH_EXTRA_INFO_SIZE;
 
 extern const char* const BRUTE_FORCE_QUANTIZATION_TYPE;
 extern const char* const BRUTE_FORCE_IO_TYPE;
 
 extern const char* const IVF_USE_RESIDUAL;
+extern const char* const IVF_TRAIN_TYPE;
 extern const char* const IVF_BUCKETS_COUNT;
 extern const char* const IVF_BASE_QUANTIZATION_TYPE;
 extern const char* const IVF_BASE_IO_TYPE;

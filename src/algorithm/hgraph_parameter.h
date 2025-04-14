@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "data_cell/extra_info_datacell_parameter.h"
 #include "data_cell/flatten_datacell_parameter.h"
 #include "data_cell/graph_interface_parameter.h"
 #include "parameter.h"
@@ -37,8 +38,10 @@ public:
     FlattenDataCellParamPtr base_codes_param{nullptr};
     FlattenDataCellParamPtr precise_codes_param{nullptr};
     GraphInterfaceParamPtr bottom_graph_param{nullptr};
+    ExtraInfoDataCellParamPtr extra_info_param{nullptr};
 
     bool use_reorder{false};
+    bool ignore_reorder{false};
     uint64_t ef_construction{400};
     uint64_t build_thread_count{100};
 

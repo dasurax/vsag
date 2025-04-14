@@ -61,7 +61,7 @@ main(int argc, char** argv) {
     auto index = vsag::Factory::CreateIndex("ivf_pq", ivf_build_params).value();
 
     /******************* Build IVF Index *****************/
-    
+
     if (auto build_result = index->Build(base); build_result.has_value()) {
         std::cout << "After Build(), Index IVF contains: " << index->GetNumElements() << std::endl;
     } else if (build_result.error().type == vsag::ErrorType::INTERNAL_ERROR) {

@@ -19,45 +19,56 @@
  *
  **/
 
+#include <assert.h>
+#include <math.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
-#include <assert.h>
 //#include <mkl.h>
 #include <cblas.h>
-#include <random>
 #include <glog/logging.h>
 #include <immintrin.h>
 #include <omp.h>
+#include <random>
 #include "algorithm/puck/kmeans.h"
 #include "algorithm/puck/thread_pool.h"
 
 namespace puck {
 
-#if (defined(__STD_C_VERSION__) && (__STD_C_VERSION__ >= 201112L)) || \
-    (__cplusplus >= 201703L) || defined(_ISOC11_SOURCE)
-void *aligned_malloc(size_t size, size_t minimum_alignment) {
-  size = (size + minimum_alignment - 1) / minimum_alignment * minimum_alignment;
-  return aligned_alloc(minimum_alignment, size);
+#if (defined(__STD_C_VERSION__) && (__STD_C_VERSION__ >= 201112L)) || (__cplusplus >= 201703L) || \
+    defined(_ISOC11_SOURCE)
+void*
+aligned_malloc(size_t size, size_t minimum_alignment) {
+    size = (size + minimum_alignment - 1) / minimum_alignment * minimum_alignment;
+    return aligned_alloc(minimum_alignment, size);
 }
 
-void aligned_free(void *aligned_memory) { free(aligned_memory); }
+void
+aligned_free(void* aligned_memory) {
+    free(aligned_memory);
+}
 
 #elif defined(_MSC_VER)
 #include <malloc.h>
 
-void *aligned_malloc(size_t size, size_t minimum_alignment) {
-  return _aligned_alloc(size, minimum_alignment);
+void*
+aligned_malloc(size_t size, size_t minimum_alignment) {
+    return _aligned_alloc(size, minimum_alignment);
 }
 
-void aligned_free(void *aligned_memory) { _aligned_free(aligned_memory); }
+void
+aligned_free(void* aligned_memory) {
+    _aligned_free(aligned_memory);
+}
 
 #else
 #endif
 
-void Kmeans::random_init_center(const size_t total_cnt, const size_t sample_cnt,
-                                const uint32_t dim,
-                                const float* train_dataset, std::vector<size_t>& sample_ids) {
+void
+Kmeans::random_init_center(const size_t total_cnt,
+                           const size_t sample_cnt,
+                           const uint32_t dim,
+                           const float* train_dataset,
+                           std::vector<size_t>& sample_ids) {
     sample_ids.clear();
     std::uniform_int_distribution<> dis(0, total_cnt - 1);
     std::vector<bool> filter(total_cnt, false);
@@ -75,7 +86,8 @@ void Kmeans::random_init_center(const size_t total_cnt, const size_t sample_cnt,
     }
 }
 
-int Kmeans::roulette_selection(std::vector<float>& wheel) {
+int
+Kmeans::roulette_selection(std::vector<float>& wheel) {
     float total_val = 0;
 
     for (auto& val : wheel) {
@@ -86,7 +98,7 @@ int Kmeans::roulette_selection(std::vector<float>& wheel) {
     std::uniform_real_distribution<double> dis(0, 1.0);
     double rd = dis(_rnd);
 
-    for (auto id = 0; id < wheel.size();  ++id) {
+    for (auto id = 0; id < wheel.size(); ++id) {
         rd -= wheel[id];
 
         if (rd < 0) {
@@ -97,9 +109,12 @@ int Kmeans::roulette_selection(std::vector<float>& wheel) {
     return wheel.size() - 1;
 }
 
-void Kmeans::kmeanspp_init_center(const size_t total_cnt, const size_t sample_cnt,
-                                  const uint32_t dim,
-                                  const float* train_dataset, std::vector<size_t>& sample_ids) {
+void
+Kmeans::kmeanspp_init_center(const size_t total_cnt,
+                             const size_t sample_cnt,
+                             const uint32_t dim,
+                             const float* train_dataset,
+                             std::vector<size_t>& sample_ids) {
     std::vector<float> disbest(total_cnt, std::numeric_limits<float>::max());
     std::vector<float> distmp(total_cnt);
     sample_ids.resize(sample_cnt, 0);
@@ -107,12 +122,13 @@ void Kmeans::kmeanspp_init_center(const size_t total_cnt, const size_t sample_cn
 
     std::vector<float> points_norm(total_cnt, 0);
     int max_threads = omp_get_max_threads();
-    
-    #pragma omp parallel for schedule(dynamic) num_threads(_params.nt)
+
+#pragma omp parallel for schedule(dynamic) num_threads(_params.nt)
     for (size_t j = 0; j < total_cnt; j++) {
         int num_threads = omp_get_num_threads();
         if (j == 0)
-        LOG(INFO) << "kmeanspp_init_center: " << _params.nt << " " << max_threads << " " << num_threads; 
+            LOG(INFO) << "kmeanspp_init_center: " << _params.nt << " " << max_threads << " "
+                      << num_threads;
         points_norm[j] = cblas_sdot(dim, train_dataset + j * dim, 1, train_dataset + j * dim, 1);
     }
 
@@ -120,12 +136,11 @@ void Kmeans::kmeanspp_init_center(const size_t total_cnt, const size_t sample_cn
         size_t newsel = sample_ids[i - 1];
         const float* last_center = train_dataset + newsel * dim;
 
-        #pragma omp parallel for schedule(dynamic) num_threads(_params.nt)
+#pragma omp parallel for schedule(dynamic) num_threads(_params.nt)
 
         for (size_t j = 0; j < total_cnt; j++) {
-
-            float temp = points_norm[j] + points_norm[newsel] - 2.0 * cblas_sdot(dim, train_dataset + j * dim, 1,
-                         last_center, 1);
+            float temp = points_norm[j] + points_norm[newsel] -
+                         2.0 * cblas_sdot(dim, train_dataset + j * dim, 1, last_center, 1);
 
             if (temp < disbest[j]) {
                 disbest[j] = temp;
@@ -137,12 +152,13 @@ void Kmeans::kmeanspp_init_center(const size_t total_cnt, const size_t sample_cn
     }
 }
 
-int Kmeans::kmeans_reassign_empty(uint32_t dim, size_t total_cnt, size_t k, float* centroids,
-                                  int* assign, int* nassign) {
+int
+Kmeans::kmeans_reassign_empty(
+    uint32_t dim, size_t total_cnt, size_t k, float* centroids, int* assign, int* nassign) {
     std::vector<float> proba_split(k);
     std::vector<float> vepsilon(dim);
     std::normal_distribution<> d_normal(0, _rnd() / ((double)RAND_MAX + 1.0));
-    #pragma omp parallel for schedule(dynamic) num_threads(_params.nt)
+#pragma omp parallel for schedule(dynamic) num_threads(_params.nt)
 
     for (auto c = 0; c < k; c++) {
         proba_split[c] = (nassign[c] < 2 ? 0 : nassign[c] * nassign[c] - 1);
@@ -174,11 +190,14 @@ int Kmeans::kmeans_reassign_empty(uint32_t dim, size_t total_cnt, size_t k, floa
     return nreassign;
 }
 
-float Kmeans::kmeans(uint32_t dim, size_t total_cnt, size_t k,
-                     const float* train_dataset,
-                     float* centroids_out, float* dis_out,
-                     int* assign_out) {
-
+float
+Kmeans::kmeans(uint32_t dim,
+               size_t total_cnt,
+               size_t k,
+               const float* train_dataset,
+               float* centroids_out,
+               float* dis_out,
+               int* assign_out) {
     if (k >= total_cnt) {
         LOG(ERROR) << "better to have fewer clusters than points";
         return -1;
@@ -204,7 +223,12 @@ float Kmeans::kmeans(uint32_t dim, size_t total_cnt, size_t k,
         LOG(INFO) << "\nkmeans / run " << run;
 #endif
         //_params.init_type = KMeansCenterInitType::RANDOM;
-        LOG(INFO) << "kmeans 0";
+        float norm = 0.0;
+        for (size_t i = 0; i < dim; i++) {
+            norm += train_dataset[i] * train_dataset[i];
+        }
+        LOG(INFO) << "kmeans 0 " << train_dataset[0] << " " << train_dataset[1] << " "
+                  << train_dataset[2] << " " << norm << " " << dim;
         if (_params.init_type == KMeansCenterInitType::KMEANS_PLUS_PLUS) {
             //数据集太大时候，缩小范围，待开发
             uint32_t nsubset = (total_cnt > k * 8 && total_cnt > 8 * 1024) ? k * 8 : total_cnt;
@@ -215,13 +239,24 @@ float Kmeans::kmeans(uint32_t dim, size_t total_cnt, size_t k,
         }
         LOG(INFO) << "kmeans 1";
         for (auto i = 0; i < k; i++) {
-            memcpy(centroids.get() + i * dim, train_dataset + selected[i] * dim, dim * sizeof(centroids[0]));
+            memcpy(centroids.get() + i * dim,
+                   train_dataset + selected[i] * dim,
+                   dim * sizeof(centroids[0]));
         }
-	LOG(INFO) << "kmeans 2 " << dim << " " <<  total_cnt << " " << k << " " << _params.niter << " " << nt;
-        core_ret = kmeans_core(dim, total_cnt, k, _params.niter, nt,
-                               centroids.get(), train_dataset, assign.get(), nassign.get(), dis.get(),
+        LOG(INFO) << "kmeans 2 " << dim << " " << total_cnt << " " << k << " " << _params.niter
+                  << " " << nt;
+        core_ret = kmeans_core(dim,
+                               total_cnt,
+                               k,
+                               _params.niter,
+                               nt,
+                               centroids.get(),
+                               train_dataset,
+                               assign.get(),
+                               nassign.get(),
+                               dis.get(),
                                &qerr);
-	LOG(INFO) << "kmeans 3";
+        LOG(INFO) << "kmeans 3";
         if (core_ret < 0) {
             return -1;
             break;
@@ -247,21 +282,32 @@ float Kmeans::kmeans(uint32_t dim, size_t total_cnt, size_t k,
     return qerr_best / total_cnt;
 }
 
-float Kmeans::assign(uint32_t dim, size_t total_cnt, size_t k,
-                     const float* train_dataset,
-                     float* centroids, float* dis_out,
-                     int* assign_out) {
-
+float
+Kmeans::assign(uint32_t dim,
+               size_t total_cnt,
+               size_t k,
+               const float* train_dataset,
+               float* centroids,
+               float* dis_out,
+               int* assign_out) {
     std::unique_ptr<int[]> nassign(new int[k]);
 
     double qerr = std::numeric_limits<double>::max();
 
     int core_ret = 0;
 
-    core_ret = kmeans_assign(dim, total_cnt, k, _params.niter, 1,
-                            centroids, train_dataset, assign_out, nassign.get(), dis_out,
-                            &qerr);
-	
+    core_ret = kmeans_assign(dim,
+                             total_cnt,
+                             k,
+                             _params.niter,
+                             1,
+                             centroids,
+                             train_dataset,
+                             assign_out,
+                             nassign.get(),
+                             dis_out,
+                             &qerr);
+
     return qerr / total_cnt;
 }
 
@@ -629,40 +675,52 @@ int nearest_center2(uint32_t dim, const float* centroids, const size_t centroid_
 }
 
 */
-inline int Kmeans::nearest_center(uint32_t dim, const float* centroids, const size_t centroid_cnt,
-                   const float* train_dataset, const size_t point_cnt, int* assign, float* dis) {
+inline int
+Kmeans::nearest_center(uint32_t dim,
+                       const float* centroids,
+                       const size_t centroid_cnt,
+                       const float* train_dataset,
+                       const size_t point_cnt,
+                       int* assign,
+                       float* dis) {
     std::vector<float> points_norm(point_cnt);
     std::vector<float> centroids_norm(centroid_cnt);
-    int nt = _params.nt; //std::thread::hardware_concurrency();
+    int nt = _params.nt;  //std::thread::hardware_concurrency();
 
-    #pragma omp parallel for schedule(dynamic) num_threads(nt)
+#pragma omp parallel for schedule(dynamic) num_threads(nt)
 
     for (size_t j = 0; j < point_cnt; j++) {
         points_norm[j] = cblas_sdot(dim, train_dataset + j * dim, 1, train_dataset + j * dim, 1);
     }
 
-    #pragma omp parallel for schedule(dynamic) num_threads(nt)
+#pragma omp parallel for schedule(dynamic) num_threads(nt)
 
     for (size_t j = 0; j < centroid_cnt; j++) {
         centroids_norm[j] = cblas_sdot(dim, centroids + j * dim, 1, centroids + j * dim, 1);
     }
 
-    #pragma omp parallel for schedule(dynamic) num_threads(nt)
+#pragma omp parallel for schedule(dynamic) num_threads(nt)
 
     for (size_t j = 0; j < point_cnt; j++) {
         std::pair<float, uint32_t> min_centroid = {std::numeric_limits<float>::max(), 0};
 
         for (size_t c = 0; c < centroid_cnt; c++) {
-            float cur_dist = points_norm[j] + centroids_norm[c] - 2.0 * cblas_sdot(dim, train_dataset + j * dim, 1,
-                             centroids + c * dim, 1);
-            //if (j == 0 && c < 30) {
-              //  LOG(INFO) << "c: " << c << " " << cur_dist;
-            //}
+            float cur_dist =
+                points_norm[j] + centroids_norm[c] -
+                2.0 * cblas_sdot(dim, train_dataset + j * dim, 1, centroids + c * dim, 1);
+            /*
+            if (j == 0 && c < 30) {
+                LOG(INFO) << "c: " << c << " " << cur_dist << " " << points_norm[j] << " "
+                          << centroids_norm[c] << " "
+                          << 2.0 * cblas_sdot(
+                                       dim, train_dataset + j * dim, 1, centroids + c * dim, 1);
+            }
+            */
             if (cur_dist < min_centroid.first) {
                 min_centroid = {cur_dist, c};
             }
         }
-        
+
         assign[j] = min_centroid.second;
         dis[j] = min_centroid.first;
     }
@@ -670,12 +728,18 @@ inline int Kmeans::nearest_center(uint32_t dim, const float* centroids, const si
     return 0;
 }
 
-int Kmeans::kmeans_core(uint32_t d, size_t n, size_t k, int niter, int nt,
-                        float* centroids, const float* v,
-                        int* assign, int* nassign,
-                        float* dis,
-                        double* qerr_out) {
-
+int
+Kmeans::kmeans_core(uint32_t d,
+                    size_t n,
+                    size_t k,
+                    int niter,
+                    int nt,
+                    float* centroids,
+                    const float* v,
+                    int* assign,
+                    int* nassign,
+                    float* dis,
+                    double* qerr_out) {
     double qerr = std::numeric_limits<double>::max();
     double qerr_old = std::numeric_limits<double>::max();
 
@@ -691,7 +755,8 @@ int Kmeans::kmeans_core(uint32_t d, size_t n, size_t k, int niter, int nt,
 
             for (auto i = 0; i < n; i++) {
                 if (assign[i] < 0 || assign[i] >= k) {
-                    LOG(ERROR) << "assign to invalid center, something wrong in input. Maybe there are NaNs?";
+                    LOG(ERROR) << "assign to invalid center, something wrong in input. Maybe there "
+                                  "are NaNs?";
                     return -1;
                 }
 
@@ -734,10 +799,10 @@ int Kmeans::kmeans_core(uint32_t d, size_t n, size_t k, int niter, int nt,
             break;
         }
 
-//#ifdef DEBUG
+        //#ifdef DEBUG
         if (k != 16 && k != 256)
-        LOG(INFO) << "ite " << iter << "th, err = " << qerr << ", nreassign = " << nreassign;
-//#endif
+            LOG(INFO) << "ite " << iter << "th, err = " << qerr << ", nreassign = " << nreassign;
+        //#endif
     }
     size_t maxn = 0;
     for (size_t kk = 0; kk < k; kk++) {
@@ -745,7 +810,8 @@ int Kmeans::kmeans_core(uint32_t d, size_t n, size_t k, int niter, int nt,
             maxn = nassign[kk];
         }
     }
-    LOG(INFO) << "maxn: " << " " << maxn << " k: " << k;
+    LOG(INFO) << "maxn: "
+              << " " << maxn << " k: " << k;
     if (k == 50 || k == 500) {
         for (size_t kk = 0; kk < k; kk++) {
             LOG(INFO) << kk << " " << nassign[kk];
@@ -756,17 +822,22 @@ int Kmeans::kmeans_core(uint32_t d, size_t n, size_t k, int niter, int nt,
     return 0;
 }
 
-int Kmeans::kmeans_assign(uint32_t d, size_t n, size_t k, int niter, int nt,
-                        float* centroids, const float* v,
-                        int* assign, int* nassign,
-                        float* dis,
-                        double* qerr_out) {
-
+int
+Kmeans::kmeans_assign(uint32_t d,
+                      size_t n,
+                      size_t k,
+                      int niter,
+                      int nt,
+                      float* centroids,
+                      const float* v,
+                      int* assign,
+                      int* nassign,
+                      float* dis,
+                      double* qerr_out) {
     double qerr = std::numeric_limits<double>::max();
     double qerr_old = std::numeric_limits<double>::max();
 
     int tot_nreassign = 0;
-
 
     nearest_center(d, centroids, k, v, n, assign, dis);
     // nearest_center2(d, centroids, k, v, n, assign, dis);
@@ -775,7 +846,8 @@ int Kmeans::kmeans_assign(uint32_t d, size_t n, size_t k, int niter, int nt,
 
     for (auto i = 0; i < n; i++) {
         if (assign[i] < 0 || assign[i] >= k) {
-            LOG(ERROR) << "assign to invalid center, something wrong in input. Maybe there are NaNs?";
+            LOG(ERROR)
+                << "assign to invalid center, something wrong in input. Maybe there are NaNs?";
             return -1;
         }
 
@@ -788,7 +860,6 @@ int Kmeans::kmeans_assign(uint32_t d, size_t n, size_t k, int niter, int nt,
         qerr += dis[i];
     }
 
-
     LOG(INFO) << "err = " << qerr;
 
     size_t maxn = 0;
@@ -797,7 +868,8 @@ int Kmeans::kmeans_assign(uint32_t d, size_t n, size_t k, int niter, int nt,
             maxn = nassign[kk];
         }
     }
-    LOG(INFO) << "maxn: " << " " << maxn << " k: " << k;
+    LOG(INFO) << "maxn: "
+              << " " << maxn << " k: " << k;
     if (k == 50) {
         for (size_t kk = 0; kk < k; kk++) {
             LOG(INFO) << kk << " " << nassign[kk];
@@ -808,4 +880,4 @@ int Kmeans::kmeans_assign(uint32_t d, size_t n, size_t k, int niter, int nt,
     return 0;
 }
 
-};//namespace puck
+};  //namespace puck

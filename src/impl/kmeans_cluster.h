@@ -27,7 +27,7 @@ public:
     ~KMeansCluster();
 
     Vector<int>
-    Run(uint32_t k, const float* datas, uint64_t count, int iter = 200);
+    Run(uint32_t k, const float* datas, uint64_t count, int iter = 200, float* err = nullptr);
 
 public:
     float* k_centroids_{nullptr};

@@ -23,12 +23,15 @@ namespace vsag {
 const char* const INDEX_TYPE_HGRAPH = "hgraph";
 const char* const INDEX_TYPE_IVF = "ivf";
 const char* const INDEX_TYPE_IVF_PQ = "ivf_pq";
+const char* const INDEX_TYPE_GNO_IMI = "gno_imi";
 
 // Parameter key for hgraph
 const char* const HGRAPH_USE_REORDER_KEY = "use_reorder";
+const char* const HGRAPH_IGNORE_REORDER_KEY = "ignore_reorder";
 const char* const HGRAPH_GRAPH_KEY = "graph";
 const char* const HGRAPH_BASE_CODES_KEY = "base_codes";
 const char* const HGRAPH_PRECISE_CODES_KEY = "precise_codes";
+const char* const HGRAPH_EXTRA_INFO_KEY = "extra_info";
 
 // IO param key
 const char* const IO_PARAMS_KEY = "io_params";
@@ -56,6 +59,7 @@ const char* const QUANTIZATION_TYPE_VALUE_BF16 = "bf16";
 const char* const QUANTIZATION_TYPE_VALUE_PQ = "pq";
 const char* const QUANTIZATION_TYPE_VALUE_RABITQ = "rabitq";
 
+const char* const PCA_DIM = "pca_dim";
 const char* const SQ4_UNIFORM_QUANTIZATION_TRUNC_RATE = "sq4_uniform_trunc_rate";
 
 // graph param value
@@ -66,9 +70,16 @@ const char* const BUILD_PARAMS_KEY = "build_params";
 const char* const BUILD_THREAD_COUNT = "build_thread_count";
 const char* const BUILD_EF_CONSTRUCTION = "ef_construction";
 
+const char* const SPARSE_NEED_SORT = "need_sort";
+
 const char* const BUCKET_PARAMS_KEY = "buckets_params";
+const char* const NO_BUILD_LEVELS = "no_build_levels";
+
 const char* const BUCKETS_COUNT_KEY = "buckets_count";
 const char* const IVF_SEARCH_PARAM_SCAN_BUCKETS_COUNT = "scan_buckets_count";
+const char* const IVF_TRAIN_TYPE_KEY = "ivf_train_type";
+const char* const IVF_TRAIN_TYPE_RANDOM = "random";
+const char* const IVF_TRAIN_TYPE_KMEANS = "kmeans";
 
 const char* const COARSE_CLUSTER_COUNT_KEY = "coarse_cluster_count";
 const char* const FINE_CLUSTER_COUNT_KEY = "fine_cluster_count";
@@ -86,6 +97,7 @@ const std::unordered_map<std::string, std::string> DEFAULT_MAP = {
     {"INDEX_TYPE_IVF", INDEX_TYPE_IVF},
     {"INDEX_TYPE_IVF_PQ", INDEX_TYPE_IVF_PQ},
     {"HGRAPH_USE_REORDER_KEY", HGRAPH_USE_REORDER_KEY},
+    {"HGRAPH_IGNORE_REORDER_KEY", HGRAPH_IGNORE_REORDER_KEY},
     {"HGRAPH_GRAPH_KEY", HGRAPH_GRAPH_KEY},
     {"HGRAPH_BASE_CODES_KEY", HGRAPH_BASE_CODES_KEY},
     {"HGRAPH_PRECISE_CODES_KEY", HGRAPH_PRECISE_CODES_KEY},
@@ -113,13 +125,15 @@ const std::unordered_map<std::string, std::string> DEFAULT_MAP = {
     {"IO_FILE_PATH", IO_FILE_PATH},
     {"DEFAULT_FILE_PATH_VALUE", DEFAULT_FILE_PATH_VALUE},
     {"SQ4_UNIFORM_QUANTIZATION_TRUNC_RATE", SQ4_UNIFORM_QUANTIZATION_TRUNC_RATE},
+    {"PCA_DIM", PCA_DIM},
     {"IVF_SEARCH_PARAM_SCAN_BUCKETS_COUNT", IVF_SEARCH_PARAM_SCAN_BUCKETS_COUNT},
     {"COARSE_CLUSTER_COUNT_KEY", COARSE_CLUSTER_COUNT_KEY},
     {"FINE_CLUSTER_COUNT_KEY", FINE_CLUSTER_COUNT_KEY},
     {"FILTER_NSQ_KEY", FILTER_NSQ_KEY},
     {"TRAIN_POINTS_COUNT_KEY", TRAIN_POINTS_COUNT_KEY},
     {"PQ_TRAIN_POINTS_COUNT_KEY", PQ_TRAIN_POINTS_COUNT_KEY},
-    {"BUCKETS_COUNT_KEY", BUCKETS_COUNT_KEY}
-};
+    {"BUCKETS_COUNT_KEY", BUCKETS_COUNT_KEY},
+    {"IVF_TRAIN_TYPE_KEY", IVF_TRAIN_TYPE_KEY},
+    {"HGRAPH_EXTRA_INFO_KEY", HGRAPH_EXTRA_INFO_KEY}};
 
 }  // namespace vsag

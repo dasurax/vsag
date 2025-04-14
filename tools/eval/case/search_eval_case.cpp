@@ -15,6 +15,8 @@
 
 #include "./search_eval_case.h"
 
+#include <omp.h>
+
 #include <cstdio>
 #include <fstream>
 #include <iostream>
@@ -144,32 +146,40 @@ SearchEvalCase::deserialize() {
     this->index_->Deserialize(infile);
 }
 
-
 void
 SearchEvalCase::do_knn_search() {
     uint64_t topk = config_.top_k;
     auto query_count = this->dataset_ptr_->GetNumberOfQuery();
     this->logger_->Debug("query count is " + std::to_string(query_count));
     std::cout << "query count is " << query_count << std::endl;
-    auto min_query = std::max(query_count, 3000L);
+    auto min_query = std::max(query_count, 1000L);
     std::cout << "query count is " << query_count << " " << min_query << std::endl;
     size_t i = 0;
     for (auto& monitor : this->monitors_) {
-        std::cout << "monitor i " << i << " " << monitor->GetName() << std::endl;
+        std::cout << "monitor i " << i << " " << monitor->GetName() << " "
+                  << config_.num_threads_searching << std::endl;
         i += 1;
         monitor->Start();
+
+        omp_set_num_threads(config_.num_threads_searching);
+#pragma omp parallel for schedule(dynamic)
         for (int64_t id = 0; id < min_query; ++id) {
             auto i = id % query_count;
-            //if (i % 100 == 0) {
-              //  std::cout << "monitor i " << i << " " << id << " " << query_count << std::endl;
-            //}
+            if (i % 100 == 0) {
+                std::cout << "monitor i " << i << " " << id << " " << query_count << " "
+                          << omp_get_thread_num() << std::endl;
+            }
             auto query = vsag::Dataset::Make();
             query->NumElements(1)->Dim(this->dataset_ptr_->GetDim())->Owner(false);
             const void* query_vector = this->dataset_ptr_->GetOneTest(i);
-            if (this->dataset_ptr_->GetTestDataType() == vsag::DATATYPE_FLOAT32) {
-                query->Float32Vectors((const float*)query_vector);
-            } else if (this->dataset_ptr_->GetTestDataType() == vsag::DATATYPE_INT8) {
-                query->Int8Vectors((const int8_t*)query_vector);
+            if (this->dataset_ptr_->GetVectorType() == DENSE_VECTORS) {
+                if (this->dataset_ptr_->GetTestDataType() == vsag::DATATYPE_FLOAT32) {
+                    query->Float32Vectors((const float*)query_vector);
+                } else if (this->dataset_ptr_->GetTestDataType() == vsag::DATATYPE_INT8) {
+                    query->Int8Vectors((const int8_t*)query_vector);
+                }
+            } else {
+                query->SparseVectors((const SparseVector*)query_vector);
             }
             auto result = this->index_->KnnSearch(query, topk, config_.search_param);
             if (not result.has_value()) {
@@ -185,7 +195,6 @@ SearchEvalCase::do_knn_search() {
         monitor->Stop();
     }
 }
-
 
 /*
 void

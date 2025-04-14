@@ -22,6 +22,7 @@
 #include "algorithm/hnswlib/algorithm_interface.h"
 #include "algorithm/hnswlib/visited_list_pool.h"
 #include "common.h"
+#include "data_cell/extra_info_interface.h"
 #include "data_cell/flatten_interface.h"
 #include "data_cell/graph_interface.h"
 #include "default_thread_pool.h"
@@ -106,6 +107,9 @@ public:
     DatasetPtr
     CalDistanceById(const float* query, const int64_t* ids, int64_t count) const override;
 
+    void
+    GetExtraInfoByIds(const int64_t* ids, int64_t count, char* extra_infos) const override;
+
     inline void
     SetBuildThreadsCount(uint64_t count) {
         this->build_thread_count_ = count;
@@ -170,7 +174,8 @@ private:
     Vector<GraphInterfacePtr> route_graphs_;
     GraphInterfacePtr bottom_graph_{nullptr};
 
-    bool use_reorder_{false};
+    mutable bool use_reorder_{false};
+    bool ignore_reorder_{false};
 
     BasicSearcherPtr searcher_;
 
@@ -196,5 +201,8 @@ private:
     InnerIdType max_capacity_{0};
 
     const uint64_t resize_increase_count_bit_{10};  // 2^resize_increase_count_bit_ for resize count
+
+    ExtraInfoInterfacePtr extra_infos_{nullptr};
+    uint64_t extra_info_size_{0};
 };
 }  // namespace vsag

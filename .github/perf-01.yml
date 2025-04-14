@@ -7,14 +7,94 @@ global:
       format: "json"
       to: "/tmp/perf-00.json"
 
-GIST-HGRAPH-FP32:
+GIST-IVF-100:
     datapath: "./data/gist-960-euclidean.hdf5"
-    type: "search" # build, search
-    index_name: "hgraph"
-    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"base_quantization_type": "fp32", "ef_construction":200, "max_degree":32}}'
-    search_params: '{"hgraph":{"ef_search":200}}'
-    index_path: "./index/gist-960-euclidean/hgraph_index_fp32"
+    type: "search" # build,search
+    index_name: "ivf"
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":100,"base_quantization_type":"fp32"}}'
+    search_params: '{"ivf":{"scan_buckets_count":10}}'
+    index_path: "./index/gist-960-euclidean/ivf_index_100"
     topk: 10
     search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
     range: 0.5
     delete_index_after_search: false
+    num_threads_searching: 4
+
+GIST-IVF-1000:
+    datapath: "./data/gist-960-euclidean.hdf5"
+    type: "search" # build,search
+    index_name: "ivf"
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":1000,"base_quantization_type":"fp32"}}'
+    search_params: '{"ivf":{"scan_buckets_count":100}}'
+    index_path: "./index/gist-960-euclidean/ivf_index_1000"
+    topk: 10
+    search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
+    range: 0.5
+    delete_index_after_search: false
+    num_threads_searching: 4
+
+GIST-IVF-10000:
+    datapath: "./data/gist-960-euclidean.hdf5"
+    type: "search" # build,search
+    index_name: "ivf"
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":10000,"base_quantization_type":"fp32"}}'
+    search_params: '{"ivf":{"scan_buckets_count":1000}}'
+    index_path: "./index/gist-960-euclidean/ivf_index_10000"
+    topk: 10
+    search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
+    range: 0.5
+    delete_index_after_search: false
+    num_threads_searching: 4
+
+GIST-GNO-IMI-0:
+    datapath: "./data/gist-960-euclidean.hdf5"
+    type: "search" # build,search
+    index_name: "gno_imi"
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":10000,"base_quantization_type":"fp32","coarse_cluster_count":100,"fine_cluster_count":100,"filter_nsq":240,"train_points_count":500000,"pq_train_points_count":100000}}'
+    search_params: '{"ivf_pq":{"scan_buckets_count":200,"search_coarse_count":50,"search_fine_count":200,"filter_topk":200,"window_size":20}}'
+    index_path: "./index/gist-960-euclidean/gno_imi"
+    topk: 10
+    search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
+    range: 0.5
+    delete_index_after_search: false
+    num_threads_searching: 4
+
+GIST-GNO-IMI-1:
+    datapath: "./data/gist-960-euclidean.hdf5"
+    type: "search" # build,search
+    index_name: "gno_imi"
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":10000,"base_quantization_type":"fp32","coarse_cluster_count":100,"fine_cluster_count":100,"filter_nsq":240,"train_points_count":500000,"pq_train_points_count":100000}}'
+    search_params: '{"ivf_pq":{"scan_buckets_count":500,"search_coarse_count":50,"search_fine_count":200,"filter_topk":200,"window_size":20}}'
+    index_path: "./index/gist-960-euclidean/gno_imi"
+    topk: 10
+    search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
+    range: 0.5
+    delete_index_after_search: false
+    num_threads_searching: 4
+
+GIST-GNO-IMI-2:
+    datapath: "./data/gist-960-euclidean.hdf5"
+    type: "search" # build,search
+    index_name: "gno_imi"
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":10000,"base_quantization_type":"fp32","coarse_cluster_count":100,"fine_cluster_count":100,"filter_nsq":240,"train_points_count":500000,"pq_train_points_count":100000}}'
+    search_params: '{"ivf_pq":{"scan_buckets_count":800,"search_coarse_count":50,"search_fine_count":200,"filter_topk":200,"window_size":20}}'
+    index_path: "./index/gist-960-euclidean/gno_imi"
+    topk: 10
+    search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
+    range: 0.5
+    delete_index_after_search: false
+    num_threads_searching: 4
+
+GIST-GNO-IMI-3:
+    datapath: "./data/gist-960-euclidean.hdf5"
+    type: "search" # build,search
+    index_name: "gno_imi"
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":10000,"base_quantization_type":"fp32","coarse_cluster_count":100,"fine_cluster_count":100,"filter_nsq":240,"train_points_count":500000,"pq_train_points_count":100000}}'
+    search_params: '{"ivf_pq":{"scan_buckets_count":1000,"search_coarse_count":50,"search_fine_count":200,"filter_topk":200,"window_size":20}}'
+    index_path: "./index/gist-960-euclidean/gno_imi"
+    topk: 10
+    search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
+    range: 0.5
+    delete_index_after_search: false
+    num_threads_searching: 4
+  

@@ -73,7 +73,7 @@ BruteForce::KnnSearch(const DatasetPtr& query,
                       const std::string& parameters,
                       const FilterPtr& filter) const {
     auto computer = this->inner_codes_->FactoryComputer(query->GetFloat32Vectors());
-    auto heap = std::make_shared<StandardHeap<true, true>>(this->allocator_, k);
+    auto heap = std::make_shared<StandardHeap<true, true> >(this->allocator_, k);
     for (InnerIdType i = 0; i < total_count_; ++i) {
         float dist;
         if (filter == nullptr or filter->CheckValid(this->label_table_->GetLabelById(i))) {
@@ -101,7 +101,7 @@ BruteForce::RangeSearch(const vsag::DatasetPtr& query,
     if (limited_size < 0) {
         limited_size = std::numeric_limits<int64_t>::max();
     }
-    auto heap = std::make_shared<StandardHeap<true, true>>(this->allocator_, limited_size);
+    auto heap = std::make_shared<StandardHeap<true, true> >(this->allocator_, limited_size);
     for (InnerIdType i = 0; i < total_count_; ++i) {
         float dist;
         if (filter == nullptr or filter->CheckValid(this->label_table_->GetLabelById(i))) {
@@ -239,7 +239,7 @@ BruteForce::split_dataset_by_duplicate_label(const DatasetPtr& dataset,
     return return_datasets;
 }
 
-static const std::unordered_map<std::string, std::vector<std::string>> EXTERNAL_MAPPING = {
+static const std::unordered_map<std::string, std::vector<std::string> > EXTERNAL_MAPPING = {
     {BRUTE_FORCE_QUANTIZATION_TYPE, {QUANTIZATION_PARAMS_KEY, QUANTIZATION_TYPE_KEY}},
     {BRUTE_FORCE_IO_TYPE, {IO_PARAMS_KEY, IO_TYPE_KEY}}};
 

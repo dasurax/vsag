@@ -16,13 +16,13 @@
 #include "ivf_nearest_partition.h"
 
 #include <fmt/format-inl.h>
-
+#include <omp.h>
 #include "algorithm/brute_force.h"
 #include "algorithm/brute_force_parameter.h"
 #include "impl/kmeans_cluster.h"
 #include "inner_string_params.h"
 #include "safe_allocator.h"
-#include "vsag/factory.h"
+#include "utils/util_functions.h"
 
 namespace vsag {
 
@@ -59,7 +59,12 @@ IVFNearestPartition::Train(const DatasetPtr dataset) {
         cls.Run(this->bucket_count_, dataset->GetFloat32Vectors(), dataset->GetNumElements());
         memcpy(data.data(), cls.k_centroids_, dim * this->bucket_count_ * sizeof(float));
     } else if (trainer_type_ == IVFNearestPartitionTrainerType::RandomTrainer) {
-        // TODO(LHT) implement
+        auto selected = select_k_numbers(dataset->GetNumElements(), this->bucket_count_);
+        for (int i = 0; i < bucket_count_; ++i) {
+            memcpy(data.data() + i * dim,
+                   dataset->GetFloat32Vectors() + selected[i] * dim,
+                   dim * this->bucket_count_ * sizeof(float));
+        }
     }
 
     auto build_result = this->route_index_ptr_->Build(centroids);
@@ -71,6 +76,9 @@ IVFNearestPartition::ClassifyDatas(const void* datas,
                                    int64_t count,
                                    BucketIdType buckets_per_data) {
     Vector<BucketIdType> result(buckets_per_data * count, this->allocator_);
+    omp_set_num_threads(50);
+    omp_set_dynamic(true);
+#pragma omp parallel for schedule(dynamic)
     for (int64_t i = 0; i < count; ++i) {
         auto query = Dataset::Make();
         query->Dim(this->dim_)
@@ -83,11 +91,12 @@ IVFNearestPartition::ClassifyDatas(const void* datas,
         auto search_result =
             this->route_index_ptr_->KnnSearch(query, buckets_per_data, search_param, filter);
         const auto* result_ids = search_result->GetIds();
-
+        const auto* result_dists = search_result->GetDistances();
         for (int64_t j = 0; j < buckets_per_data; ++j) {
             result[i * buckets_per_data + j] = static_cast<BucketIdType>(result_ids[j]);
         }
     }
+    omp_set_dynamic(false);
     return result;
 }
 void

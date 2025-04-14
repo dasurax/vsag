@@ -15,8 +15,9 @@
 
 #pragma once
 
+#include <cblas.h>
+#include <iostream>
 #include <vector>
-
 #include "stream_reader.h"
 #include "stream_writer.h"
 #include "vsag/dataset.h"
@@ -35,6 +36,11 @@ public:
     virtual Vector<BucketIdType>
     ClassifyDatas(const void* datas, int64_t count, BucketIdType buckets_per_data) = 0;
 
+    virtual Vector<BucketIdType>
+    ClassifyDatasForSearch(const void* datas, int64_t count, BucketIdType buckets_per_data) {
+        return std::move(ClassifyDatas(datas, count, buckets_per_data));
+    }
+
     virtual void
     Serialize(StreamWriter& writer) {
         StreamWriter::WriteObj(writer, this->is_trained_);
@@ -45,8 +51,20 @@ public:
     virtual void
     Deserialize(StreamReader& reader) {
         StreamReader::ReadObj(reader, this->is_trained_);
+        std::cout << "Deserialize bucket_count_: " << this->bucket_count_ << std::endl;
         StreamReader::ReadObj(reader, this->bucket_count_);
         StreamReader::ReadObj(reader, this->dim_);
+    }
+
+    virtual void
+    GetResidual(
+        size_t n, const float* x, float* residuals, float* centroids, BucketIdType* assign) {
+        // TODO: Directly implement c = a - b.
+        memcpy(residuals, x, sizeof(float) * n * dim_);
+        for (size_t i = 0; i < n; ++i) {
+            BucketIdType bucket_id = assign[i];
+            cblas_saxpy(dim_, -1.0, centroids + bucket_id * dim_, 1, residuals + i * dim_, 1);
+        }
     }
 
 public:

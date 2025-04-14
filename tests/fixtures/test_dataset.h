@@ -25,12 +25,16 @@ class TestDataset {
 public:
     using DatasetPtr = vsag::DatasetPtr;
 
+    const static int ID_BIAS = 10086;
+
     static std::shared_ptr<TestDataset>
     CreateTestDataset(uint64_t dim,
                       uint64_t count,
                       std::string metric_str = "l2",
                       bool with_path = false,
-                      float valid_ratio = 0.8);
+                      float valid_ratio = 0.8,
+                      std::string vector_type = "dense",
+                      uint64_t extra_info_size = 0);
 
     static std::shared_ptr<TestDataset>
     CreateNanDataset(const std::string& metric_str);

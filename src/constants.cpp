@@ -23,9 +23,11 @@ const char* const INDEX_DISKANN = "diskann";
 const char* const INDEX_HNSW = "hnsw";
 const char* const INDEX_FRESH_HNSW = "fresh_hnsw";
 const char* const INDEX_PYRAMID = "pyramid";
+const char* const INDEX_SPARSE = "sparse_index";
 const char* const INDEX_BRUTE_FORCE = "brute_force";
 const char* const INDEX_IVF = "ivf";
 const char* const INDEX_IVF_PQ = "ivf_pq";
+const char* const INDEX_GNO_IMI = "gno_imi";
 
 const char* const DIM = "dim";
 const char* const NUM_ELEMENTS = "num_elements";
@@ -35,6 +37,9 @@ const char* const FLOAT32_VECTORS = "f32_vectors";
 const char* const SPARSE_VECTORS = "sparse_vectors";
 const char* const INT8_VECTORS = "i8_vectors";
 const char* const DATASET_PATHS = "paths";
+const char* const EXTRA_INFOS = "extra_infos";
+const char* const EXTRA_INFO_SIZE = "extra_info_size";
+
 const char* const HNSW_DATA = "hnsw_data";
 const char* const CONJUGATE_GRAPH_DATA = "conjugate_graph_data";
 const char* const DISKANN_PQ = "diskann_qp";
@@ -119,8 +124,10 @@ const char* const SERIALIZE_MAGIC_NUM = "MAGIC_NUM";
 const char* const SERIALIZE_VERSION = "VERSION";
 
 const char* const SQ4_UNIFORM_TRUNC_RATE = "sq4_uniform_trunc_rate";
+const char* const RABITQ_PCA_DIM = "rabitq_pca_dim";
 
 const char* const HGRAPH_USE_REORDER = HGRAPH_USE_REORDER_KEY;
+const char* const HGRAPH_IGNORE_REORDER = "ignore_reorder";
 const char* const HGRAPH_BASE_QUANTIZATION_TYPE = "base_quantization_type";
 const char* const HGRAPH_GRAPH_MAX_DEGREE = "max_degree";
 const char* const HGRAPH_BUILD_EF_CONSTRUCTION = "ef_construction";
@@ -132,11 +139,13 @@ const char* const HGRAPH_BASE_FILE_PATH = "base_file_path";
 const char* const HGRAPH_PRECISE_IO_TYPE = "precise_io_type";
 const char* const HGRAPH_PRECISE_FILE_PATH = "precise_file_path";
 const char* const HGRAPH_PARAMETER_EF_RUNTIME = "ef_search";
+const char* const HGRAPH_EXTRA_INFO_SIZE = "extra_info_size";
 
 const char* const BRUTE_FORCE_QUANTIZATION_TYPE = "quantization_type";
 const char* const BRUTE_FORCE_IO_TYPE = "io_type";
 
 const char* const IVF_USE_RESIDUAL = "use_residual";
+const char* const IVF_TRAIN_TYPE = "ivf_train_type";
 const char* const IVF_BUCKETS_COUNT = "buckets_count";
 const char* const IVF_BASE_QUANTIZATION_TYPE = "base_quantization_type";
 const char* const IVF_BASE_IO_TYPE = "base_io_type";

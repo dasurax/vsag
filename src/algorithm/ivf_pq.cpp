@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <iostream>
-#include <filesystem> // C++17 引入的文件系统库
+#include <filesystem>  // C++17 引入的文件系统库
 #include <fstream>
+#include <iostream>
 
 #include "ivf_pq.h"
 
@@ -26,7 +26,7 @@
 
 namespace vsag {
 namespace fs = std::filesystem;
-static const std::unordered_map<std::string, std::vector<std::string>> EXTERNAL_MAPPING = {
+static const std::unordered_map<std::string, std::vector<std::string> > EXTERNAL_MAPPING = {
     {
         IVF_BASE_QUANTIZATION_TYPE,
         {BUCKET_PARAMS_KEY, QUANTIZATION_PARAMS_KEY, QUANTIZATION_TYPE_KEY},
@@ -58,8 +58,7 @@ static const std::unordered_map<std::string, std::vector<std::string>> EXTERNAL_
     {
         IVF_PQ_PQ_TRAIN_POINTS_COUNT,
         {PQ_TRAIN_POINTS_COUNT_KEY},
-    }
-};
+    }};
 
 static constexpr const char* IVF_PQ_PARAMS_TEMPLATE =
     R"(
@@ -83,13 +82,13 @@ static constexpr const char* IVF_PQ_PARAMS_TEMPLATE =
 
 ParamPtr
 IVFPQ::CheckAndMappingExternalParam(const JsonType& external_param,
-                                  const IndexCommonParam& common_param) {
+                                    const IndexCommonParam& common_param) {
     if (common_param.data_type_ == DataTypes::DATA_TYPE_INT8) {
         throw std::invalid_argument(fmt::format("IVF PQ not support {} datatype", DATATYPE_INT8));
     }
 
     std::string str = format_map(IVF_PQ_PARAMS_TEMPLATE, DEFAULT_MAP);
-    std::cout << "cout " << str << std::endl;
+    // std::cout << "cout " << str << std::endl;
     auto inner_json = JsonType::parse(str);
     mapping_external_param_to_inner(external_param, EXTERNAL_MAPPING, inner_json);
 
@@ -168,7 +167,7 @@ IVFPQ::Build(const DatasetPtr& base) {
     std::vector<int64_t> failed_ids;
 
     std::string folder_path = "./puck_index";
-    if (!fs::exists(folder_path)) { // 检查文件夹是否存在
+    if (!fs::exists(folder_path)) {  // 检查文件夹是否存在
         fs::create_directory(folder_path);
     }
 
@@ -191,7 +190,7 @@ IVFPQ::Build(const DatasetPtr& base) {
 
     puck_index_->train();
     puck_index_->build();
-    
+
     return failed_ids;
 }
 
@@ -215,9 +214,9 @@ IVFPQ::Add(const DatasetPtr& base) {
 
 DatasetPtr
 IVFPQ::KnnSearch(const vsag::DatasetPtr& query,
-               int64_t k,
-               const std::string& parameters,
-               const vsag::FilterPtr& filter) const {
+                 int64_t k,
+                 const std::string& parameters,
+                 const vsag::FilterPtr& filter) const {
     auto param = IVFPQSearchParameters::FromJson(parameters);
     auto* allocator = allocator_;
     puck::Request request;
@@ -230,7 +229,7 @@ IVFPQ::KnnSearch(const vsag::DatasetPtr& query,
     response.local_idx = local_idx.data();
 
     auto& conf = puck_index_->get_conf_file();
-    
+
     conf.search_coarse_count = param.search_coarse_count;
     conf.search_fine_count = param.search_fine_count;
     conf.filter_topk = param.filter_topk;
@@ -250,7 +249,9 @@ IVFPQ::KnnSearch(const vsag::DatasetPtr& query,
     auto ret = puck_index_->search(&request, &response);
 
     auto dataset_results = Dataset::Make();
-    dataset_results->Dim(static_cast<int64_t>(response.result_num))->NumElements(1)->Owner(true, allocator);
+    dataset_results->Dim(static_cast<int64_t>(response.result_num))
+        ->NumElements(1)
+        ->Owner(true, allocator);
 
     auto* ids = (int64_t*)allocator->Allocate(sizeof(int64_t) * response.result_num);
     dataset_results->Ids(ids);
@@ -265,10 +266,10 @@ IVFPQ::KnnSearch(const vsag::DatasetPtr& query,
 
 DatasetPtr
 IVFPQ::RangeSearch(const vsag::DatasetPtr& query,
-                 float radius,
-                 const std::string& parameters,
-                 const vsag::FilterPtr& filter,
-                 int64_t limited_size) const {
+                   float radius,
+                   const std::string& parameters,
+                   const vsag::FilterPtr& filter,
+                   int64_t limited_size) const {
     auto* allocator = allocator_;
     MaxHeap heap(allocator);
     auto param = IVFPQSearchParameters::FromJson(parameters);

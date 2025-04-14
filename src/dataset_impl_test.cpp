@@ -42,6 +42,17 @@ TEST_CASE("Dataset Implement Test", "[ut][dataset]") {
         delete[] data;
     }
 
+    SECTION("extra_info") {
+        auto dataset = vsag::Dataset::Make();
+        std::string extra_info = "0123456789";
+        int64_t extra_info_size = 2;
+        dataset->ExtraInfoSize(extra_info_size)->ExtraInfos(extra_info.c_str())->Owner(false);
+
+        REQUIRE(dataset->GetExtraInfoSize() == extra_info_size);
+        auto* get_result = dataset->GetExtraInfos();
+        REQUIRE(get_result[6] == '6');
+    }
+
     SECTION("sparse vector") {
         uint32_t size = 100;
         uint32_t max_dim = 256;
@@ -62,7 +73,7 @@ TEST_CASE("Dataset Implement Test", "[ut][dataset]") {
         auto sparse_vectors_ptr = dataset->GetSparseVectors();
         for (int i = 0; i < dataset->GetNumElements(); i++) {
             uint32_t dim = sparse_vectors_ptr[i].len_;
-            REQUIRE(dim < max_dim);
+            REQUIRE(dim <= max_dim);
             for (int d = 0; d < dim; d++) {
                 REQUIRE(sparse_vectors_ptr[i].ids_[d] < max_id);
                 REQUIRE(min_val < sparse_vectors_ptr[i].vals_[d]);

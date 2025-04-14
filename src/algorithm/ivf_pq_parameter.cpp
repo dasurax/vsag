@@ -17,16 +17,16 @@
 
 #include <fmt/format-inl.h>
 
+#include <iostream>
 #include "inner_string_params.h"
 #include "vsag/constants.h"
-#include <iostream>
 namespace vsag {
 
 IVFPQParameter::IVFPQParameter() = default;
 
 void
 IVFPQParameter::FromJson(const JsonType& json) {
-    std::cout << "dump: " << json.dump() << std::endl;
+    //std::cout << "dump: " << json.dump() << std::endl;
     this->bucket_param = std::make_shared<BucketDataCellParameter>();
     CHECK_ARGUMENT(json.contains(BUCKET_PARAMS_KEY),
                    fmt::format("ivf parameters must contains {}", BUCKET_PARAMS_KEY));
@@ -35,7 +35,7 @@ IVFPQParameter::FromJson(const JsonType& json) {
     CHECK_ARGUMENT(json.contains(COARSE_CLUSTER_COUNT_KEY),
                    fmt::format("ivf parameters must contains {}", COARSE_CLUSTER_COUNT_KEY));
     this->coarse_cluster_count = json[COARSE_CLUSTER_COUNT_KEY];
-    
+
     if (json.contains(FINE_CLUSTER_COUNT_KEY)) {
         this->fine_cluster_count = json[FINE_CLUSTER_COUNT_KEY];
     } else {
@@ -45,11 +45,11 @@ IVFPQParameter::FromJson(const JsonType& json) {
     CHECK_ARGUMENT(json.contains(FILTER_NSQ_KEY),
                    fmt::format("ivf parameters must contains {}", FILTER_NSQ_KEY));
     this->filter_nsq = this->filter_nsq;
-    
+
     if (json.contains(TRAIN_POINTS_COUNT_KEY)) {
         this->train_points_count = json[TRAIN_POINTS_COUNT_KEY];
     }
-    
+
     if (json.contains(FINE_CLUSTER_COUNT_KEY)) {
         this->pq_train_points_count = json[PQ_TRAIN_POINTS_COUNT_KEY];
     }

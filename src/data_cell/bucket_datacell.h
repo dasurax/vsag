@@ -34,7 +34,7 @@ public:
     ScanBucketById(float* result_dists,
                    const ComputerInterfacePtr& computer,
                    const BucketIdType& bucket_id) override {
-        auto comp = std::static_pointer_cast<Computer<QuantTmpl>>(computer);
+        auto comp = std::static_pointer_cast<Computer<QuantTmpl> >(computer);
         return this->scan_bucket_by_id(result_dists, comp, bucket_id);
     }
 
@@ -42,7 +42,7 @@ public:
     QueryOneById(const ComputerInterfacePtr& computer,
                  const BucketIdType& bucket_id,
                  const InnerIdType& offset_id) override {
-        auto comp = std::static_pointer_cast<Computer<QuantTmpl>>(computer);
+        auto comp = std::static_pointer_cast<Computer<QuantTmpl> >(computer);
         return this->query_one_by_id(comp, bucket_id, offset_id);
     }
 
@@ -93,17 +93,18 @@ private:
     inline void
     check_valid_bucket_id(BucketIdType bucket_id) {
         if (bucket_id >= this->bucket_count_ or bucket_id < 0) {
-            throw std::runtime_error("visited invalid bucket id");
+            throw std::runtime_error(
+                fmt::format("visited invalid bucket id {} {}", bucket_id, this->bucket_count_));
         }
     }
 
     inline void
     scan_bucket_by_id(float* result_dists,
-                      const std::shared_ptr<Computer<QuantTmpl>>& computer,
+                      const std::shared_ptr<Computer<QuantTmpl> >& computer,
                       const BucketIdType& bucket_id);
 
     inline float
-    query_one_by_id(const std::shared_ptr<Computer<QuantTmpl>>& computer,
+    query_one_by_id(const std::shared_ptr<Computer<QuantTmpl> >& computer,
                     const BucketIdType& bucket_id,
                     const InnerIdType& offset_id);
     inline void
@@ -114,13 +115,13 @@ private:
 private:
     std::shared_ptr<QuantTmpl> quantizer_{nullptr};
 
-    Vector<std::shared_ptr<IOTmpl>> datas_;
+    Vector<std::shared_ptr<IOTmpl> > datas_;
 
     Vector<InnerIdType> bucket_sizes_;
 
     Vector<std::shared_mutex> bucket_mutexes_;
 
-    Vector<Vector<LabelType>> labels_;
+    Vector<Vector<LabelType> > labels_;
 
     Allocator* const allocator_{nullptr};
 };
@@ -150,7 +151,7 @@ BucketDataCell<QuantTmpl, IOTmpl>::BucketDataCell(const QuantizerParamPtr& quant
 template <typename QuantTmpl, typename IOTmpl>
 float
 BucketDataCell<QuantTmpl, IOTmpl>::query_one_by_id(
-    const std::shared_ptr<Computer<QuantTmpl>>& computer,
+    const std::shared_ptr<Computer<QuantTmpl> >& computer,
     const BucketIdType& bucket_id,
     const InnerIdType& offset_id) {
     this->check_valid_bucket_id(bucket_id);
@@ -172,7 +173,7 @@ template <typename QuantTmpl, typename IOTmpl>
 void
 BucketDataCell<QuantTmpl, IOTmpl>::scan_bucket_by_id(
     float* result_dists,
-    const std::shared_ptr<Computer<QuantTmpl>>& computer,
+    const std::shared_ptr<Computer<QuantTmpl> >& computer,
     const BucketIdType& bucket_id) {
     constexpr InnerIdType scan_block_size = 32;
     InnerIdType offset = 0;

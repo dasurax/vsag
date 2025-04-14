@@ -22,7 +22,7 @@
 
 namespace vsag {
 
-static const std::unordered_map<std::string, std::vector<std::string>> EXTERNAL_MAPPING = {
+static const std::unordered_map<std::string, std::vector<std::string> > EXTERNAL_MAPPING = {
     {
         IVF_BASE_QUANTIZATION_TYPE,
         {BUCKET_PARAMS_KEY, QUANTIZATION_PARAMS_KEY, QUANTIZATION_TYPE_KEY},
@@ -35,12 +35,17 @@ static const std::unordered_map<std::string, std::vector<std::string>> EXTERNAL_
         IVF_BUCKETS_COUNT,
         {BUCKET_PARAMS_KEY, BUCKETS_COUNT_KEY},
     },
+    {
+        IVF_TRAIN_TYPE,
+        {IVF_TRAIN_TYPE_KEY},
+    },
 };
 
 static constexpr const char* IVF_PARAMS_TEMPLATE =
     R"(
     {
         "type": "{INDEX_TYPE_IVF}",
+        "{IVF_TRAIN_TYPE_KEY}": "{IVF_TRAIN_TYPE_KMEANS}",
         "{BUCKET_PARAMS_KEY}": {
             "{IO_PARAMS_KEY}": {
                 "{IO_TYPE_KEY}": "{IO_TYPE_VALUE_BLOCK_MEMORY_IO}"
@@ -72,6 +77,9 @@ IVF::CheckAndMappingExternalParam(const JsonType& external_param,
 IVF::IVF(const IVFParameterPtr& param, const IndexCommonParam& common_param)
     : InnerIndexInterface(param, common_param) {
     this->bucket_ = BucketInterface::MakeInstance(param->bucket_param, common_param);
+    if (this->bucket_ == nullptr) {
+        throw VsagException(ErrorType::INTERNAL_ERROR, "bucket init error");
+    }
     this->partition_strategy_ = std::make_shared<IVFNearestPartition>(
         bucket_->bucket_count_, common_param, IVFNearestPartitionTrainerType::KMeansTrainer);
 }
@@ -139,10 +147,10 @@ IVF::Add(const DatasetPtr& base) {
 }
 
 DatasetPtr
-IVF::KnnSearch(const vsag::DatasetPtr& query,
+IVF::KnnSearch(const DatasetPtr& query,
                int64_t k,
                const std::string& parameters,
-               const vsag::FilterPtr& filter) const {
+               const FilterPtr& filter) const {
     auto* allocator = allocator_;
     MaxHeap heap(allocator);
     auto param = IVFSearchParameters::FromJson(parameters);
@@ -152,6 +160,7 @@ IVF::KnnSearch(const vsag::DatasetPtr& query,
         partition_strategy_->ClassifyDatas(query->GetFloat32Vectors(), 1, scan_buckets_count);
     auto computer = bucket_->FactoryComputer(query->GetFloat32Vectors());
     Vector<float> dist(allocator);
+    size_t total = 0;
     auto cur_heap_top = std::numeric_limits<float>::max();
     for (auto& bucket_id : candidate_buckets) {
         auto bucket_size = bucket_->GetBucketSize(bucket_id);
@@ -159,6 +168,7 @@ IVF::KnnSearch(const vsag::DatasetPtr& query,
         if (bucket_size > dist.size()) {
             dist.resize(bucket_size);
         }
+        total += bucket_size;
         bucket_->ScanBucketById(dist.data(), computer, bucket_id);
         for (int j = 0; j < bucket_size; ++j) {
             if (filter == nullptr or filter->CheckValid(labels[j])) {
@@ -172,6 +182,7 @@ IVF::KnnSearch(const vsag::DatasetPtr& query,
             }
         }
     }
+    //std::cout << "total: " << total << std::endl;
     auto dataset_results = Dataset::Make();
     dataset_results->Dim(static_cast<int64_t>(heap.size()))->NumElements(1)->Owner(true, allocator);
 
@@ -188,10 +199,10 @@ IVF::KnnSearch(const vsag::DatasetPtr& query,
 }
 
 DatasetPtr
-IVF::RangeSearch(const vsag::DatasetPtr& query,
+IVF::RangeSearch(const DatasetPtr& query,
                  float radius,
                  const std::string& parameters,
-                 const vsag::FilterPtr& filter,
+                 const FilterPtr& filter,
                  int64_t limited_size) const {
     auto* allocator = allocator_;
     MaxHeap heap(allocator);
