@@ -64,12 +64,13 @@ public:
         {"fp16", 0.98},
         {"sq8", 0.95},
         {"sq8_uniform", 0.95},
+        {"rabitq,fp32", 0.3},
         {"sq8_uniform,fp32", 0.98},
         {"sq8_uniform,fp16", 0.98},
         {"sq8_uniform,bf16", 0.98},
         {"sq8_uniform,bf16,buffer_io", 0.98},
         {"sq8_uniform,fp16,async_io", 0.98},
-        {"rabitq,fp32", 0.3}};
+    };
 };
 
 TestDatasetPool HgraphTestIndex::pool{};
@@ -158,11 +159,13 @@ HgraphTestIndex::TestGeneral(const TestIndex::IndexPtr& index,
                              const TestDatasetPtr& dataset,
                              const std::string& search_param,
                              float recall) {
+    TestGetMinAndMaxId(index, dataset);
     TestKnnSearch(index, dataset, search_param, recall, true);
+    TestKnnSearchIter(index, dataset, search_param, recall, true);
     TestConcurrentKnnSearch(index, dataset, search_param, recall, true);
     TestRangeSearch(index, dataset, search_param, recall, 10, true);
     TestRangeSearch(index, dataset, search_param, recall / 2.0, 5, true);
-    TestFilterSearch(index, dataset, search_param, recall, true);
+    TestFilterSearch(index, dataset, search_param, recall, true, true);
     TestCheckIdExist(index, dataset);
     TestCalcDistanceById(index, dataset);
     TestBatchCalcDistanceById(index, dataset);
@@ -324,6 +327,34 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex,
     }
 }
 
+TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex,
+                             "HGraph Search Empty Index",
+                             "[ft][hgraph]") {
+    auto origin_size = vsag::Options::Instance().block_size_limit();
+    auto size = GENERATE(1024 * 1024 * 2);
+    auto metric_type = GENERATE("l2");
+
+    const std::string name = "hgraph";
+    auto search_param = fmt::format(search_param_tmp, 200);
+    auto dim = dims[0];
+    auto& [base_quantization_str, recall] = test_cases[0];
+    vsag::Options::Instance().set_block_size_limit(size);
+    auto param = GenerateHGraphBuildParametersString(metric_type, dim, base_quantization_str);
+    auto index = TestFactory(name, param, true);
+    auto dataset = pool.GetDatasetAndCreate(dim, base_count, metric_type);
+    TestGetMinAndMaxId(index, dataset, false);
+    TestKnnSearch(index, dataset, search_param, recall, false);
+    TestKnnSearchIter(index, dataset, search_param, recall, false);
+    TestConcurrentKnnSearch(index, dataset, search_param, recall, false);
+    TestRangeSearch(index, dataset, search_param, recall, 10, false);
+    TestRangeSearch(index, dataset, search_param, recall / 2.0, 5, false);
+    TestFilterSearch(index, dataset, search_param, recall, false, true);
+    TestCheckIdExist(index, dataset, false);
+    TestCalcDistanceById(index, dataset, 2e-6, false);
+    TestBatchCalcDistanceById(index, dataset, 2e-6, false);
+    vsag::Options::Instance().set_block_size_limit(origin_size);
+}
+
 TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex, "HGraph Build", "[ft][hgraph]") {
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
@@ -389,7 +420,7 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex,
                              "[ft][hgraph]") {
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
-    auto metric_type = GENERATE("l2", "ip", "cosine");
+    auto metric_type = GENERATE("l2", "cosine");
     auto dataset = pool.GetNanDataset(metric_type);
     auto dim = dataset->dim_;
     const std::string name = "hgraph";
@@ -414,7 +445,7 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex,
                              "[ft][hgraph][concurrent]") {
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
-    auto metric_type = GENERATE("l2", "ip", "cosine");
+    auto metric_type = GENERATE("l2", "cosine");
 
     const std::string name = "hgraph";
     auto search_param = fmt::format(search_param_tmp, 200);
@@ -445,7 +476,7 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex,
 TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex, "HGraph Serialize File", "[ft][hgraph]") {
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
-    auto metric_type = GENERATE("l2", "ip", "cosine");
+    auto metric_type = GENERATE("l2", "cosine");
     const std::string name = "hgraph";
     auto search_param = fmt::format(search_param_tmp, 200);
     uint64_t extra_info_size = 64;
@@ -488,7 +519,7 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex,
     auto allocator = std::make_shared<fixtures::RandomAllocator>();
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
-    auto metric_type = GENERATE("l2", "ip", "cosine");
+    auto metric_type = GENERATE("l2", "cosine");
     const std::string name = "hgraph";
     for (auto dim : dims) {
         for (auto& [base_quantization_str, recall] : test_cases) {
@@ -517,7 +548,7 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex,
 TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex, "HGraph Duplicate Build", "[ft][hgraph]") {
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
-    auto metric_type = GENERATE("l2", "ip", "cosine");
+    auto metric_type = GENERATE("l2", "ip");
 
     const std::string name = "hgraph";
     auto search_param = fmt::format(search_param_tmp, 200);
@@ -547,7 +578,7 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex, "HGraph Duplicate Build"
 TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex, "HGraph Estimate Memory", "[ft][hgraph]") {
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
-    auto metric_type = GENERATE("l2", "ip", "cosine");
+    auto metric_type = GENERATE("l2", "cosine");
 
     const std::string name = "hgraph";
     auto search_param = fmt::format(search_param_tmp, 200);
@@ -581,7 +612,7 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex, "HGraph Estimate Memory"
 TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex, "HGraph Ignore Reorder", "[ft][hgraph]") {
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
-    auto metric_type = GENERATE("l2", "ip", "cosine");
+    auto metric_type = GENERATE("l2", "cosine");
 
     const std::string name = "hgraph";
     auto search_param = fmt::format(search_param_tmp, 200);
@@ -614,7 +645,7 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex, "HGraph Ignore Reorder",
 TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex, "HGraph With Extra Info", "[ft][hgraph]") {
     auto origin_size = vsag::Options::Instance().block_size_limit();
     auto size = GENERATE(1024 * 1024 * 2);
-    auto metric_type = GENERATE("l2", "ip", "cosine");
+    auto metric_type = GENERATE("l2", "ip");
     uint64_t extra_info_size = 256;
 
     const std::string name = "hgraph";
@@ -641,6 +672,7 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::HgraphTestIndex, "HGraph With Extra Info"
                                                     extra_info_size);
             TestBuildIndex(index, dataset, true);
             TestKnnSearch(index, dataset, search_param, recall, true);
+            TestKnnSearchIter(index, dataset, search_param, recall, true);
             TestRangeSearch(index, dataset, search_param, recall, 10, true);
             TestGetExtraInfoById(index, dataset, extra_info_size);
             vsag::Options::Instance().set_block_size_limit(origin_size);

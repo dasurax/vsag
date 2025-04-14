@@ -79,6 +79,9 @@ public:
               int64_t k,
               const std::string& parameters,
               BitsetPtr invalid = nullptr) const override {
+        if (GetNumElements() == 0) {
+            return DatasetImpl::MakeEmptyDataset();
+        }
         SAFE_CALL(return this->inner_index_->KnnSearch(query, k, parameters, invalid));
     }
 
@@ -87,6 +90,9 @@ public:
               int64_t k,
               const std::string& parameters,
               const std::function<bool(int64_t)>& filter) const override {
+        if (GetNumElements() == 0) {
+            return DatasetImpl::MakeEmptyDataset();
+        }
         SAFE_CALL(return this->inner_index_->KnnSearch(query, k, parameters, filter));
     }
 
@@ -95,7 +101,24 @@ public:
               int64_t k,
               const std::string& parameters,
               const FilterPtr& filter) const override {
+        if (GetNumElements() == 0) {
+            return DatasetImpl::MakeEmptyDataset();
+        }
         SAFE_CALL(return this->inner_index_->KnnSearch(query, k, parameters, filter));
+    }
+
+    tl::expected<DatasetPtr, Error>
+    KnnSearch(const DatasetPtr& query,
+              int64_t k,
+              const std::string& parameters,
+              const FilterPtr& filter,
+              IteratorContext*& iter_ctx,
+              bool is_last_filter) const override {
+        if (GetNumElements() == 0) {
+            return DatasetImpl::MakeEmptyDataset();
+        }
+        SAFE_CALL(return this->inner_index_->KnnSearch(
+            query, k, parameters, filter, iter_ctx, is_last_filter));
     }
 
     [[nodiscard]] tl::expected<DatasetPtr, Error>
@@ -103,6 +126,9 @@ public:
                 float radius,
                 const std::string& parameters,
                 int64_t limited_size = -1) const override {
+        if (GetNumElements() == 0) {
+            return DatasetImpl::MakeEmptyDataset();
+        }
         SAFE_CALL(return this->inner_index_->RangeSearch(query, radius, parameters, limited_size));
     }
 
@@ -112,6 +138,9 @@ public:
                 const std::string& parameters,
                 BitsetPtr invalid,
                 int64_t limited_size = -1) const override {
+        if (GetNumElements() == 0) {
+            return DatasetImpl::MakeEmptyDataset();
+        }
         SAFE_CALL(return this->inner_index_->RangeSearch(
             query, radius, parameters, invalid, limited_size));
     }
@@ -122,6 +151,9 @@ public:
                 const std::string& parameters,
                 const std::function<bool(int64_t)>& filter,
                 int64_t limited_size = -1) const override {
+        if (GetNumElements() == 0) {
+            return DatasetImpl::MakeEmptyDataset();
+        }
         SAFE_CALL(return this->inner_index_->RangeSearch(
             query, radius, parameters, filter, limited_size));
     }
@@ -132,6 +164,9 @@ public:
                 const std::string& parameters,
                 const FilterPtr& filter,
                 int64_t limited_size = -1) const override {
+        if (GetNumElements() == 0) {
+            return DatasetImpl::MakeEmptyDataset();
+        }
         SAFE_CALL(return this->inner_index_->RangeSearch(
             query, radius, parameters, filter, limited_size));
     }
@@ -165,6 +200,11 @@ public:
     GetExtraInfoByIds(const int64_t* ids, int64_t count, char* extra_infos) const override {
         SAFE_CALL(this->inner_index_->GetExtraInfoByIds(ids, count, extra_infos));
     };
+
+    tl::expected<std::pair<int64_t, int64_t>, Error>
+    GetMinAndMaxId() const override {
+        SAFE_CALL(return this->inner_index_->GetMinAndMaxId());
+    }
 
     tl::expected<void, Error>
     Merge(const std::vector<MergeUnit>& merge_units) override {
