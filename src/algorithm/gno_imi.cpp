@@ -91,34 +91,19 @@ GNOIMI::CheckAndMappingExternalParam(const JsonType& external_param,
     auto inner_json = JsonType::parse(str);
     mapping_external_param_to_inner(external_param, EXTERNAL_MAPPING, inner_json);
 
-    auto ivf_pq_parameter = std::make_shared<IVFPQParameter>();
-    ivf_pq_parameter->FromJson(inner_json);
+    auto gno_imi_parameter = std::make_shared<GNOIMIParameter>();
+    gno_imi_parameter->FromJson(inner_json);
 
-    return ivf_pq_parameter;
+    return gno_imi_parameter;
 }
 
-GNOIMI::GNOIMI(const IVFPQParameterPtr& param, const IndexCommonParam& common_param)
+GNOIMI::GNOIMI(const GNOIMIParameterPtr& param, const IndexCommonParam& common_param)
     : InnerIndexInterface(param, common_param) {
     this->bucket_ = BucketInterface::MakeInstance(param->bucket_param, common_param);
     this->partition_strategy_ = std::make_shared<GNOIMIPartition>(
         /*bucket_->bucket_count_*/ 100,
         common_param,
         IVFNearestPartitionTrainerType::KMeansTrainer);
-    /*
-    puck_index_.reset(new puck::PuckIndex());
-    auto& conf = puck_index_->get_conf_file();
-    conf.spilled_copy_num = 1;
-    conf.feature_dim = common_param.dim_;
-    conf.nsq = common_param.dim_;
-    conf.whether_norm = false;
-
-    conf.filter_nsq = param->filter_nsq;
-    conf.coarse_cluster_count = param->coarse_cluster_count;
-    conf.fine_cluster_count = param->fine_cluster_count;
-    conf.train_points_count = param->train_points_count;
-    conf.pq_train_points_count = param->pq_train_points_count;
-    conf.show();
-    */
 }
 
 void
@@ -159,37 +144,8 @@ GNOIMI::InitFeatures() {
 
 std::vector<int64_t>
 GNOIMI::Build(const DatasetPtr& base) {
-    /*
-    std::vector<int64_t> failed_ids;
-    
-    std::string folder_path = "./puck_index";
-    if (!fs::exists(folder_path)) {  // 检查文件夹是否存在
-        fs::create_directory(folder_path);
-    }
-
-    std::string filename = folder_path + "/all_data.feat.bin";
-    std::ofstream file(filename, std::ios::binary);
-
-    const float* vectors = base->GetFloat32Vectors();
-    size_t num_vectors = base->GetNumElements();
-    size_t dim = base->GetDim();
-
-    for (size_t i = 0; i < num_vectors; ++i) {
-        uint32_t dim_uint32 = static_cast<uint32_t>(dim);
-        file.write(reinterpret_cast<const char*>(&dim_uint32), sizeof(uint32_t));
-
-        const float* vector_data = vectors + i * dim;
-        file.write(reinterpret_cast<const char*>(vector_data), dim * sizeof(float));
-    }
-
-    file.close();
-    */
-
     partition_strategy_->Train(base);
     this->bucket_->Train(base->GetFloat32Vectors(), base->GetNumElements());
-    //puck_index_->train();
-    //puck_index_->build();
-
     return this->Add(base);
 }
 
@@ -219,7 +175,7 @@ GNOIMI::KnnSearch(const vsag::DatasetPtr& query,
                   const vsag::FilterPtr& filter) const {
     auto* allocator = allocator_;
     MaxHeap heap(allocator);
-    auto param = IVFPQSearchParameters::FromJson(parameters);
+    auto param = GNOIMISearchParameters::FromJson(parameters);
     int scan_buckets_count =
         std::min(static_cast<BucketIdType>(param.scan_buckets_count), bucket_->bucket_count_);
     auto candidate_buckets = partition_strategy_->ClassifyDatasForSearch(
@@ -284,7 +240,7 @@ GNOIMI::RangeSearch(const vsag::DatasetPtr& query,
                     int64_t limited_size) const {
     auto* allocator = allocator_;
     MaxHeap heap(allocator);
-    auto param = IVFPQSearchParameters::FromJson(parameters);
+    auto param = GNOIMISearchParameters::FromJson(parameters);
     int scan_buckets_count =
         std::min(static_cast<BucketIdType>(param.scan_buckets_count), bucket_->bucket_count_);
     auto candidate_buckets = partition_strategy_->ClassifyDatasForSearch(

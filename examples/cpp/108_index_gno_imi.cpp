@@ -103,7 +103,7 @@ main(int argc, char** argv) {
     /******************* KnnSearch For IVF Index *****************/
     auto ivf_search_parameters = R"(
     {
-        "ivf_pq": {
+        "gno_imi": {
             "scan_buckets_count": 1000,
             "search_coarse_count": 10,
             "search_fine_count": 100,

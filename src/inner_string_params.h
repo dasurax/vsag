@@ -22,7 +22,7 @@ namespace vsag {
 // Index Type
 const char* const INDEX_TYPE_HGRAPH = "hgraph";
 const char* const INDEX_TYPE_IVF = "ivf";
-const char* const INDEX_TYPE_IVF_PQ = "ivf_pq";
+const char* const INDEX_TYPE_IVF_PQ = "gno_imi";
 const char* const INDEX_TYPE_GNO_IMI = "gno_imi";
 
 // Parameter key for hgraph

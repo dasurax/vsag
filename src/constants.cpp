@@ -26,7 +26,7 @@ const char* const INDEX_PYRAMID = "pyramid";
 const char* const INDEX_SPARSE = "sparse_index";
 const char* const INDEX_BRUTE_FORCE = "brute_force";
 const char* const INDEX_IVF = "ivf";
-const char* const INDEX_IVF_PQ = "ivf_pq";
+const char* const INDEX_IVF_PQ = "gno_imi";
 const char* const INDEX_GNO_IMI = "gno_imi";
 
 const char* const DIM = "dim";

@@ -15,13 +15,11 @@
 
 #pragma once
 
-#include <glog/logging.h>
 #include "data_cell/bucket_datacell.h"
+#include "gno_imi_parameter.h"
 #include "index/index_common_param.h"
 #include "inner_index_interface.h"
 #include "ivf_partition/ivf_partition_strategy.h"
-#include "ivf_pq_parameter.h"
-#include "puck/puck_index.h"
 #include "stream_reader.h"
 #include "stream_writer.h"
 #include "typing.h"
@@ -35,10 +33,10 @@ public:
                                  const IndexCommonParam& common_param);
 
 public:
-    explicit GNOIMI(const IVFPQParameterPtr& param, const IndexCommonParam& common_param);
+    explicit GNOIMI(const GNOIMIParameterPtr& param, const IndexCommonParam& common_param);
 
     explicit GNOIMI(const ParamPtr& param, const IndexCommonParam& common_param)
-        : GNOIMI(std::dynamic_pointer_cast<IVFPQParameter>(param), common_param){};
+        : GNOIMI(std::dynamic_pointer_cast<GNOIMIParameter>(param), common_param){};
 
     ~GNOIMI() override = default;
 
@@ -87,7 +85,6 @@ private:
     BucketInterfacePtr bucket_{nullptr};
 
     IVFPartitionStrategyPtr partition_strategy_{nullptr};
-    std::shared_ptr<puck::PuckIndex> puck_index_{nullptr};
     int64_t total_elements_{0};
 };
 }  // namespace vsag

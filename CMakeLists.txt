@@ -187,7 +187,6 @@ include (extern/cpuinfo/cpuinfo.cmake)
 include (extern/fmt/fmt.cmake)
 include (extern/thread_pool/thread_pool.cmake)
 include (extern/roaringbitmap/roaringbitmap.cmake)
-include (extern/glog/glog.cmake)
 
 message("CMAKE_CURRENT_BINARY_DIR = ${CMAKE_CURRENT_BINARY_DIR}")
 include_directories (${CMAKE_CURRENT_BINARY_DIR}/spdlog/install/include)
