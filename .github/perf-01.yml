@@ -50,8 +50,8 @@ GIST-GNO-IMI-0:
     datapath: "./data/gist-960-euclidean.hdf5"
     type: "search" # build,search
     index_name: "gno_imi"
-    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":10000,"base_quantization_type":"fp32","coarse_cluster_count":100,"fine_cluster_count":100,"filter_nsq":240,"train_points_count":500000,"pq_train_points_count":100000}}'
-    search_params: '{"ivf_pq":{"scan_buckets_count":200,"search_coarse_count":50,"search_fine_count":200,"filter_topk":200,"window_size":20}}'
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":10000,"base_quantization_type":"fp32","first_order_buckets_count":100,"second_order_buckets_count":100,"filter_nsq":240,"train_points_count":500000,"pq_train_points_count":100000}}'
+    search_params: '{"ivf_pq":{"scan_buckets_count":200,"first_order_scan_ratio":50,"search_fine_count":200,"filter_topk":200,"window_size":20}}'
     index_path: "./index/gist-960-euclidean/gno_imi"
     topk: 10
     search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
@@ -63,8 +63,8 @@ GIST-GNO-IMI-1:
     datapath: "./data/gist-960-euclidean.hdf5"
     type: "search" # build,search
     index_name: "gno_imi"
-    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":10000,"base_quantization_type":"fp32","coarse_cluster_count":100,"fine_cluster_count":100,"filter_nsq":240,"train_points_count":500000,"pq_train_points_count":100000}}'
-    search_params: '{"ivf_pq":{"scan_buckets_count":500,"search_coarse_count":50,"search_fine_count":200,"filter_topk":200,"window_size":20}}'
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":10000,"base_quantization_type":"fp32","first_order_buckets_count":100,"second_order_buckets_count":100,"filter_nsq":240,"train_points_count":500000,"pq_train_points_count":100000}}'
+    search_params: '{"ivf_pq":{"scan_buckets_count":500,"first_order_scan_ratio":50,"search_fine_count":200,"filter_topk":200,"window_size":20}}'
     index_path: "./index/gist-960-euclidean/gno_imi"
     topk: 10
     search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
@@ -76,8 +76,8 @@ GIST-GNO-IMI-2:
     datapath: "./data/gist-960-euclidean.hdf5"
     type: "search" # build,search
     index_name: "gno_imi"
-    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":10000,"base_quantization_type":"fp32","coarse_cluster_count":100,"fine_cluster_count":100,"filter_nsq":240,"train_points_count":500000,"pq_train_points_count":100000}}'
-    search_params: '{"ivf_pq":{"scan_buckets_count":800,"search_coarse_count":50,"search_fine_count":200,"filter_topk":200,"window_size":20}}'
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":10000,"base_quantization_type":"fp32","first_order_buckets_count":100,"second_order_buckets_count":100,"filter_nsq":240,"train_points_count":500000,"pq_train_points_count":100000}}'
+    search_params: '{"ivf_pq":{"scan_buckets_count":800,"first_order_scan_ratio":50,"search_fine_count":200,"filter_topk":200,"window_size":20}}'
     index_path: "./index/gist-960-euclidean/gno_imi"
     topk: 10
     search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]
@@ -89,8 +89,8 @@ GIST-GNO-IMI-3:
     datapath: "./data/gist-960-euclidean.hdf5"
     type: "search" # build,search
     index_name: "gno_imi"
-    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":10000,"base_quantization_type":"fp32","coarse_cluster_count":100,"fine_cluster_count":100,"filter_nsq":240,"train_points_count":500000,"pq_train_points_count":100000}}'
-    search_params: '{"ivf_pq":{"scan_buckets_count":1000,"search_coarse_count":50,"search_fine_count":200,"filter_topk":200,"window_size":20}}'
+    create_params: '{"dim":960,"dtype":"float32","metric_type":"l2","index_param":{"buckets_count":10000,"base_quantization_type":"fp32","first_order_buckets_count":100,"second_order_buckets_count":100,"filter_nsq":240,"train_points_count":500000,"pq_train_points_count":100000}}'
+    search_params: '{"ivf_pq":{"scan_buckets_count":1000,"first_order_scan_ratio":50,"search_fine_count":200,"filter_topk":200,"window_size":20}}'
     index_path: "./index/gist-960-euclidean/gno_imi"
     topk: 10
     search_mode: "knn" # ["knn", "range", "knn_filter", "range_filter"]

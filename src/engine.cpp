@@ -20,7 +20,6 @@
 #include <string>
 
 #include "algorithm/brute_force.h"
-#include "algorithm/gno_imi.h"
 #include "algorithm/hgraph.h"
 #include "algorithm/ivf.h"
 #include "algorithm/pyramid.h"
@@ -131,25 +130,6 @@ Engine::CreateIndex(const std::string& origin_name, const std::string& parameter
             auto pyramid_index =
                 std::make_shared<IndexImpl<Pyramid> >(pyramid_param_obj, index_common_params);
             return pyramid_index;
-        } else if (name == INDEX_IVF_PQ) {
-            logger::debug("created an ivf pq index");
-            JsonType gno_imi_json;
-            if (parsed_params.contains(INDEX_PARAM)) {
-                gno_imi_json = std::move(parsed_params[INDEX_PARAM]);
-            }
-            auto gno_imi_index =
-                std::make_shared<IndexImpl<GNOIMI> >(gno_imi_json, index_common_params);
-            return gno_imi_index;
-        } else if (name == INDEX_GNO_IMI) {
-            logger::debug("created an gno-imi index");
-            JsonType gno_imi_json;
-            if (parsed_params.contains(INDEX_PARAM)) {
-                gno_imi_json = std::move(parsed_params[INDEX_PARAM]);
-            }
-            auto gno_imi_index =
-                std::make_shared<IndexImpl<GNOIMI> >(gno_imi_json, index_common_params);
-            return gno_imi_index;
-
         } else if (name == INDEX_SPARSE) {
             logger::debug("created a sparse index");
             JsonType sparse_json;

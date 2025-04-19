@@ -20,15 +20,14 @@
 #include "index/index_common_param.h"
 #include "ivf_nearest_partition.h"
 #include "ivf_partition_strategy.h"
+#include "ivf_partition_strategy_parameter.h"
 #include "vsag/index.h"
 namespace vsag {
 
 class GNOIMIPartition : public IVFPartitionStrategy {
 public:
-    explicit GNOIMIPartition(BucketIdType bucket_count,
-                             const IndexCommonParam& common_param,
-                             IVFNearestPartitionTrainerType trainer_type =
-                                 IVFNearestPartitionTrainerType::KMeansTrainer);
+    explicit GNOIMIPartition(const IndexCommonParam& common_param,
+                             const IVFPartitionStrategyParametersPtr& param);
 
     void
     Train(const DatasetPtr dataset) override;
@@ -37,9 +36,11 @@ public:
     ClassifyDatas(const void* datas, int64_t count, BucketIdType buckets_per_data) override;
 
     Vector<BucketIdType>
-    ClassifyDatasForSearch(const void* datas,
-                           int64_t count,
-                           BucketIdType buckets_per_data) override;
+    ClassifyDatasForSearch(
+        const void* datas,
+        int64_t count,
+        BucketIdType buckets_per_data,
+        IVFPartitionStrategySearchParametersPtr search_params = nullptr) override;
 
     void
     Serialize(StreamWriter& writer) override;

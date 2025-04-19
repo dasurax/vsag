@@ -55,8 +55,6 @@ KMeansCluster::Run(uint32_t k, const float* datas, uint64_t count, int iter, flo
             k_centroids_[i * dim_ + j] = datas[index * dim_ + j];
         }
     }
-    std::cout << "datas: " << datas[0] << " " << datas[1] << " " << datas[2] << std::endl;
-
     ByteBuffer y_sqr_buffer(static_cast<uint64_t>(k) * sizeof(float), allocator_);
     ByteBuffer distances_buffer(static_cast<uint64_t>(k) * count * sizeof(float), allocator_);
     ByteBuffer errs_buffer(count * sizeof(float), allocator_);
@@ -83,10 +81,7 @@ KMeansCluster::Run(uint32_t k, const float* datas, uint64_t count, int iter, flo
         int num_chunks = (count + chunk_size - 1) / chunk_size;
 #pragma omp parallel for schedule(dynamic)
         for (int chunk_idx = 0; chunk_idx < num_chunks; ++chunk_idx) {
-            // std::cout << "omp_get_num_threads(): " << omp_get_num_threads() << std::endl;
-            int64_t start = chunk_idx * chunk_size;  // 当前块起始位置
-            //std::cout << "chunk_idx: " << chunk_idx << " " << num_chunks << " "
-            //        << omp_get_thread_num() << " " << omp_get_num_threads() << std::endl;
+            int64_t start = chunk_idx * chunk_size;
             int64_t cur_count = std::min(chunk_size, count - start);
             if (cur_count <= 0) {
                 continue;

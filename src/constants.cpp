@@ -26,7 +26,6 @@ const char* const INDEX_PYRAMID = "pyramid";
 const char* const INDEX_SPARSE = "sparse_index";
 const char* const INDEX_BRUTE_FORCE = "brute_force";
 const char* const INDEX_IVF = "ivf";
-const char* const INDEX_IVF_PQ = "gno_imi";
 const char* const INDEX_GNO_IMI = "gno_imi";
 
 const char* const DIM = "dim";
@@ -151,10 +150,7 @@ const char* const IVF_BASE_QUANTIZATION_TYPE = "base_quantization_type";
 const char* const IVF_BASE_IO_TYPE = "base_io_type";
 const char* const IVF_BASE_FILE_PATH = "base_file_path";
 
-const char* const IVF_PQ_COARSE_CLUSTER_COUNT = "coarse_cluster_count";
-const char* const IVF_PQ_FINE_CLUSTER_COUNT = "fine_cluster_count";
-const char* const IVF_PQ_FILTER_NSQ = "filter_nsq";
-const char* const IVF_PQ_TRAIN_POINTS_COUNT = "train_points_count";
-const char* const IVF_PQ_PQ_TRAIN_POINTS_COUNT = "pq_train_points_count";
+const char* const GNO_IMI_FIRST_ORDER_BUCKETS_COUNT = "first_order_buckets_count";
+const char* const GNO_IMI_SECOND_ORDER_BUCKETS_COUNT = "second_order_buckets_count";
 
 };  // namespace vsag

@@ -22,7 +22,6 @@ namespace vsag {
 // Index Type
 const char* const INDEX_TYPE_HGRAPH = "hgraph";
 const char* const INDEX_TYPE_IVF = "ivf";
-const char* const INDEX_TYPE_IVF_PQ = "gno_imi";
 const char* const INDEX_TYPE_GNO_IMI = "gno_imi";
 
 // Parameter key for hgraph
@@ -73,6 +72,7 @@ const char* const BUILD_EF_CONSTRUCTION = "ef_construction";
 const char* const SPARSE_NEED_SORT = "need_sort";
 
 const char* const BUCKET_PARAMS_KEY = "buckets_params";
+const char* const BUCKET_PER_DATA_KEY = "buckets_per_data";
 const char* const NO_BUILD_LEVELS = "no_build_levels";
 
 const char* const BUCKETS_COUNT_KEY = "buckets_count";
@@ -81,21 +81,20 @@ const char* const IVF_TRAIN_TYPE_KEY = "ivf_train_type";
 const char* const IVF_TRAIN_TYPE_RANDOM = "random";
 const char* const IVF_TRAIN_TYPE_KMEANS = "kmeans";
 
-const char* const COARSE_CLUSTER_COUNT_KEY = "coarse_cluster_count";
-const char* const FINE_CLUSTER_COUNT_KEY = "fine_cluster_count";
-const char* const FILTER_NSQ_KEY = "filter_nsq";
-const char* const TRAIN_POINTS_COUNT_KEY = "train_points_count";
-const char* const PQ_TRAIN_POINTS_COUNT_KEY = "pq_train_points_count";
+const char* const IVF_PARTITION_STRATEGY_PARAMS_KEY = "partition_strategy";
+const char* const IVF_PARTITION_STRATEGY_TYPE_KEY = "partition_strategy_type";
+const char* const IVF_PARTITION_STRATEGY_TYPE_NEAREST = "ivf";
+const char* const IVF_PARTITION_STRATEGY_TYPE_GNO_IMI = "gno_imi";
 
-const char* const IVF_SEARCH_PARAM_SEARCH_COARSE_COUNT = "search_coarse_count";
-const char* const IVF_SEARCH_PARAM_SEARCH_FINE_COUNT = "search_fine_count";
-const char* const IVF_SEARCH_PARAM_FILTER_TOPK = "filter_topk";
-const char* const IVF_SEARCH_PARAM_WINDOW_SIZE = "window_size";
+const char* const GNO_IMI_FIRST_ORDER_BUCKETS_COUNT_KEY = "first_order_buckets_count";
+const char* const GNO_IMI_SECOND_ORDER_BUCKETS_COUNT_KEY = "second_order_buckets_count";
+
+const char* const GNO_IMI_SEARCH_PARAM_FIRST_ORDER_SCAN_RATIO = "first_order_scan_ratio";
 
 const std::unordered_map<std::string, std::string> DEFAULT_MAP = {
     {"INDEX_TYPE_HGRAPH", INDEX_TYPE_HGRAPH},
     {"INDEX_TYPE_IVF", INDEX_TYPE_IVF},
-    {"INDEX_TYPE_IVF_PQ", INDEX_TYPE_IVF_PQ},
+    {"INDEX_TYPE_GNO_IMI", INDEX_TYPE_GNO_IMI},
     {"HGRAPH_USE_REORDER_KEY", HGRAPH_USE_REORDER_KEY},
     {"HGRAPH_IGNORE_REORDER_KEY", HGRAPH_IGNORE_REORDER_KEY},
     {"HGRAPH_GRAPH_KEY", HGRAPH_GRAPH_KEY},
@@ -127,11 +126,8 @@ const std::unordered_map<std::string, std::string> DEFAULT_MAP = {
     {"SQ4_UNIFORM_QUANTIZATION_TRUNC_RATE", SQ4_UNIFORM_QUANTIZATION_TRUNC_RATE},
     {"PCA_DIM", PCA_DIM},
     {"IVF_SEARCH_PARAM_SCAN_BUCKETS_COUNT", IVF_SEARCH_PARAM_SCAN_BUCKETS_COUNT},
-    {"COARSE_CLUSTER_COUNT_KEY", COARSE_CLUSTER_COUNT_KEY},
-    {"FINE_CLUSTER_COUNT_KEY", FINE_CLUSTER_COUNT_KEY},
-    {"FILTER_NSQ_KEY", FILTER_NSQ_KEY},
-    {"TRAIN_POINTS_COUNT_KEY", TRAIN_POINTS_COUNT_KEY},
-    {"PQ_TRAIN_POINTS_COUNT_KEY", PQ_TRAIN_POINTS_COUNT_KEY},
+    {"GNO_IMI_FIRST_ORDER_BUCKETS_COUNT_KEY", GNO_IMI_FIRST_ORDER_BUCKETS_COUNT_KEY},
+    {"GNO_IMI_SECOND_ORDER_BUCKETS_COUNT_KEY", GNO_IMI_SECOND_ORDER_BUCKETS_COUNT_KEY},
     {"BUCKETS_COUNT_KEY", BUCKETS_COUNT_KEY},
     {"IVF_TRAIN_TYPE_KEY", IVF_TRAIN_TYPE_KEY},
     {"HGRAPH_EXTRA_INFO_KEY", HGRAPH_EXTRA_INFO_KEY}};

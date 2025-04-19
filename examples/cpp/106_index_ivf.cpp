@@ -49,10 +49,11 @@ main(int argc, char** argv) {
         "dim": 128,
         "index_param": {
             "buckets_count": 50,
-            "base_quantization_type": "fp32"
+            "base_quantization_type": "fp32",
+            "partition_strategy_type": "ivf",
+            "ivf_train_type": "kmeans"
         }
-    }
-    )";
+    })";
     auto index = vsag::Factory::CreateIndex("ivf", ivf_build_params).value();
 
     /******************* Build IVF Index *****************/
@@ -75,7 +76,7 @@ main(int argc, char** argv) {
     auto ivf_search_parameters = R"(
     {
         "ivf": {
-            "scan_buckets_count": 10
+            "scan_buckets_count": 10,
         }
     })";
     int64_t topk = 10;

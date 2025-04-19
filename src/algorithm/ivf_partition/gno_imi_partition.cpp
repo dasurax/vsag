@@ -53,22 +53,19 @@ matmul(const float* A, const float* B, float* C, int32_t M, int32_t N, int32_t K
                 static_cast<blasint>(N));
 }
 
-GNOIMIPartition::GNOIMIPartition(BucketIdType bucket_count,
-                                 const IndexCommonParam& common_param,
-                                 IVFNearestPartitionTrainerType trainer_type)
-    : IVFPartitionStrategy(common_param, bucket_count * bucket_count),
-      trainer_type_(trainer_type),
-      bucket_count_S_(bucket_count),
-      bucket_count_T_(bucket_count),
+GNOIMIPartition::GNOIMIPartition(const IndexCommonParam& common_param,
+                                 const IVFPartitionStrategyParametersPtr& param)
+    : IVFPartitionStrategy(common_param,
+                           param->gnoimi_param->first_order_buckets_count *
+                               param->gnoimi_param->second_order_buckets_count),
+      bucket_count_S_(param->gnoimi_param->first_order_buckets_count),
+      bucket_count_T_(param->gnoimi_param->second_order_buckets_count),
       data_centroids_S_(allocator_),
       data_centroids_T_(allocator_),
       norms_S_(allocator_),
       norms_T_(allocator_),
       precomputed_terms_ST_(allocator_),
       common_param_(common_param) {
-    //this->factory_router_index(common_param);
-    std::cout << "construct bucket_count_S_: " << bucket_count_S_
-              << " bucket_count_T_: " << bucket_count_T_ << std::endl;
     data_centroids_S_.resize(bucket_count_S_ * dim_);
     data_centroids_T_.resize(bucket_count_T_ * dim_);
     norms_S_.resize(bucket_count_S_);
@@ -95,7 +92,6 @@ GNOIMIPartition::Train(const DatasetPtr dataset) {
     auto centroidsT = Dataset::Make();
     const auto* vectors = dataset->GetFloat32Vectors();
     auto num_element = dataset->GetNumElements();
-    std::cout << "bucket_count_: " << bucket_count_ << std::endl;
     Vector<LabelType> ids_centroidsS(this->bucket_count_S_, allocator_);
     Vector<LabelType> ids_centroidsT(this->bucket_count_T_, allocator_);
     Vector<float> data_centroids_S_tmp(this->bucket_count_S_ * dim_, allocator_);
@@ -202,7 +198,8 @@ GNOIMIPartition::ClassifyDatas(const void* datas, int64_t count, BucketIdType bu
 Vector<BucketIdType>
 GNOIMIPartition::ClassifyDatasForSearch(const void* datas,
                                         int64_t count,
-                                        BucketIdType buckets_per_data) {
+                                        BucketIdType buckets_per_data,
+                                        IVFPartitionStrategySearchParametersPtr search_params) {
     Vector<BucketIdType> result(buckets_per_data * count, this->allocator_);
     auto candidate_count_S = bucket_count_S_;
     Vector<BucketIdType> candidate_S_id(candidate_count_S, this->allocator_);
@@ -249,7 +246,10 @@ GNOIMIPartition::ClassifyDatasForSearch(const void* datas,
         }
         CHECK_ARGUMENT(heap.empty(), fmt::format("Unexpected non-empty heap after pop candidates"));
 
-        for (size_t j = 0; j < bucket_count_S_; ++j) {
+        BucketIdType scan_bucket_count_S = static_cast<BucketIdType>(
+            std::floor(bucket_count_S_ * search_params->first_order_scan_ratio));
+        scan_bucket_count_S = std::max(scan_bucket_count_S, 1);
+        for (size_t j = 0; j < scan_bucket_count_S; ++j) {
             for (size_t k = 0; k < bucket_count_T_; ++k) {
                 auto cur_bucket_id_S = candidate_S_id_data[j];
                 auto cur_bucket_id_T = k;
@@ -267,8 +267,10 @@ GNOIMIPartition::ClassifyDatasForSearch(const void* datas,
                 }
             }
         }
-        for (auto j = static_cast<int64_t>(buckets_per_data - 1); j >= 0; --j) {
+        BucketIdType size = std::min((BucketIdType)heap.size(), buckets_per_data);
+        for (auto j = static_cast<int64_t>(size - 1); j >= 0 && !heap.empty(); --j) {
             result[i * buckets_per_data + j] = heap.top().second;
+            // std::cout << j << " " << heap.top().second << " " << heap.top().first << std::endl;
             heap.pop();
         }
     }

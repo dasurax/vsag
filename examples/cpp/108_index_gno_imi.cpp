@@ -14,7 +14,6 @@
 // limitations under the License.
 
 #include <vsag/vsag.h>
-
 #include <fstream>
 #include <iostream>
 
@@ -48,37 +47,34 @@ main(int argc, char** argv) {
     {
         "dtype": "float32",
         "metric_type": "l2",
-        "dim": 960,
+        "dim": 128,
         "index_param": {
-            "buckets_count": 10000,
             "base_quantization_type": "fp32",
-            "coarse_cluster_count": 100,
-            "fine_cluster_count": 100,
-            "filter_nsq": 32,
-            "train_points_count": 500000,
-            "pq_train_points_count": 100000
+            "partition_strategy_type": "gno_imi",
+            "ivf_train_type": "kmeans",
+            "first_order_buckets_count": 10,
+            "second_order_buckets_count": 10
         }
-    }
-    )";
-    auto index = vsag::Factory::CreateIndex("gno_imi", ivf_build_params).value();
+    })";
+    auto index = vsag::Factory::CreateIndex("ivf", ivf_build_params).value();
 
     /******************* Build IVF Index *****************/
 
+    auto path = "example_gno_imi.index";
     if (auto build_result = index->Build(base); build_result.has_value()) {
-        // index->Serialize();
-        std::fstream out_stream("gno_imi.index", std::ios::out | std::ios::binary);
-        auto result = index->Serialize(out_stream);
+        std::ofstream outfile(path, std::ios::out | std::ios::binary);
+        auto result = index->Serialize(outfile);
+        outfile.close();
         std::cout << "After Build(), Index IVF contains: " << index->GetNumElements() << std::endl;
-        //exit(0);
     } else if (build_result.error().type == vsag::ErrorType::INTERNAL_ERROR) {
         std::cerr << "Failed to build index: internalError" << std::endl;
         exit(-1);
     }
 
-    std::ifstream infile("gno_imi.index", std::ios::binary);
-
-    auto index2 = vsag::Factory::CreateIndex("gno_imi", ivf_build_params).value();
+    std::ifstream infile(path, std::ios::binary);
+    auto index2 = vsag::Factory::CreateIndex("ivf", ivf_build_params).value();
     index2->Deserialize(infile);
+    infile.close();
 
     /******************* Prepare Query Dataset *****************/
     std::vector<float> query_vector(dim);
@@ -86,29 +82,15 @@ main(int argc, char** argv) {
         query_vector[i] = distrib_real(rng);
     }
 
-    std::cout << "ids: " << ids[0] << " " << datas[0] << " " << query_vector[0] << std::endl;
-    /*
-    std::string fn = "./queries_1000_960";
-    FILE* fvec_init = fopen(fn.c_str(), "rb");
-
-    int cur_dim = 0;
-    int ret = fread(&cur_dim, sizeof(int), 1, fvec_init);
-    
-    ret = fread((void*)(query_vector.data()), sizeof(float), cur_dim, fvec_init);
-    std::cout << "cur_dim: " << cur_dim << " " << ret << std::endl;
-    */
     auto query = vsag::Dataset::Make();
     query->NumElements(1)->Dim(dim)->Float32Vectors(query_vector.data())->Owner(false);
 
     /******************* KnnSearch For IVF Index *****************/
     auto ivf_search_parameters = R"(
     {
-        "gno_imi": {
-            "scan_buckets_count": 1000,
-            "search_coarse_count": 10,
-            "search_fine_count": 100,
-            "filter_topk": 200,
-            "window_size": 20
+        "ivf": {
+            "scan_buckets_count": 20,
+            "first_order_scan_ratio": 0.8
         }
     })";
     int64_t topk = 10;

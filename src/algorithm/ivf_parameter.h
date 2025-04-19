@@ -15,6 +15,7 @@
 
 #pragma once
 #include "algorithm/ivf_partition/ivf_nearest_partition.h"
+#include "algorithm/ivf_partition/ivf_partition_strategy_parameter.h"
 #include "data_cell/bucket_datacell_parameter.h"
 #include "fmt/format-inl.h"
 #include "inner_string_params.h"
@@ -34,11 +35,9 @@ public:
 
 public:
     BucketDataCellParamPtr bucket_param{nullptr};
-
+    IVFPartitionStrategyParametersPtr ivf_partition_strategy_parameter{nullptr};
+    BucketIdType buckets_per_data{1};
     bool use_residual{false};
-
-    IVFNearestPartitionTrainerType partition_train_type{
-        IVFNearestPartitionTrainerType::KMeansTrainer};
 };
 
 using IVFParameterPtr = std::shared_ptr<IVFParameter>;
@@ -60,11 +59,15 @@ public:
                                    INDEX_TYPE_IVF,
                                    IVF_SEARCH_PARAM_SCAN_BUCKETS_COUNT));
         obj.scan_buckets_count = params[INDEX_TYPE_IVF][IVF_SEARCH_PARAM_SCAN_BUCKETS_COUNT];
+        obj.ivf_partition_strategy_search_parameter =
+            std::make_shared<IVFPartitionStrategySearchParameters>(
+                IVFPartitionStrategySearchParameters::FromJson(params[INDEX_TYPE_IVF]));
         return obj;
     }
 
 public:
     int64_t scan_buckets_count{30};
+    IVFPartitionStrategySearchParametersPtr ivf_partition_strategy_search_parameter{nullptr};
 
 private:
     IVFSearchParameters() = default;

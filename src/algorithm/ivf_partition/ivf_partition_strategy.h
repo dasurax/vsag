@@ -18,11 +18,13 @@
 #include <cblas.h>
 #include <iostream>
 #include <vector>
+#include "ivf_partition_strategy_parameter.h"
 #include "stream_reader.h"
 #include "stream_writer.h"
 #include "vsag/dataset.h"
 
 namespace vsag {
+
 class IVFPartitionStrategy {
 public:
     explicit IVFPartitionStrategy(const IndexCommonParam& common_param, BucketIdType bucket_count)
@@ -37,7 +39,10 @@ public:
     ClassifyDatas(const void* datas, int64_t count, BucketIdType buckets_per_data) = 0;
 
     virtual Vector<BucketIdType>
-    ClassifyDatasForSearch(const void* datas, int64_t count, BucketIdType buckets_per_data) {
+    ClassifyDatasForSearch(const void* datas,
+                           int64_t count,
+                           BucketIdType buckets_per_data,
+                           IVFPartitionStrategySearchParametersPtr search_params = nullptr) {
         return std::move(ClassifyDatas(datas, count, buckets_per_data));
     }
 
@@ -51,7 +56,6 @@ public:
     virtual void
     Deserialize(StreamReader& reader) {
         StreamReader::ReadObj(reader, this->is_trained_);
-        std::cout << "Deserialize bucket_count_: " << this->bucket_count_ << std::endl;
         StreamReader::ReadObj(reader, this->bucket_count_);
         StreamReader::ReadObj(reader, this->dim_);
     }
