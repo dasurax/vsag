@@ -27,9 +27,18 @@ TEST_CASE("IVF Parameters Test", "[ut][IVFParameter]") {
                 "type": "block_memory_io"
             },
             "quantization_params": {
-                "type": "fp32"
+                "type": "sq8"
             },
             "buckets_count": 3
+        },
+        "use_reorder": true,
+        "precise_codes": {
+            "io_params": {
+                "type": "block_memory_io"
+            },
+            "quantization_params": {
+                "type": "fp32"
+            }
         }
     })";
 
@@ -42,6 +51,8 @@ TEST_CASE("IVF Parameters Test", "[ut][IVFParameter]") {
     REQUIRE(param->ivf_partition_strategy_parameter->partition_train_type ==
             vsag::IVFNearestPartitionTrainerType::KMeansTrainer);
     REQUIRE(param->buckets_per_data == 1);
+    REQUIRE(param->use_reorder == true);
+    REQUIRE(param->flatten_param->quantizer_parameter->GetTypeName() == "fp32");
 
     param_str = R"({
         "type": "ivf",

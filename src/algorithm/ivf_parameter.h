@@ -17,6 +17,7 @@
 #include "algorithm/ivf_partition/ivf_nearest_partition.h"
 #include "algorithm/ivf_partition/ivf_partition_strategy_parameter.h"
 #include "data_cell/bucket_datacell_parameter.h"
+#include "data_cell/flatten_datacell_parameter.h"
 #include "fmt/format-inl.h"
 #include "inner_string_params.h"
 #include "parameter.h"
@@ -38,6 +39,10 @@ public:
     IVFPartitionStrategyParametersPtr ivf_partition_strategy_parameter{nullptr};
     BucketIdType buckets_per_data{1};
     bool use_residual{false};
+
+    bool use_reorder{false};
+
+    FlattenDataCellParamPtr flatten_param{nullptr};
 };
 
 using IVFParameterPtr = std::shared_ptr<IVFParameter>;
@@ -62,12 +67,18 @@ public:
         obj.ivf_partition_strategy_search_parameter =
             std::make_shared<IVFPartitionStrategySearchParameters>(
                 IVFPartitionStrategySearchParameters::FromJson(params[INDEX_TYPE_IVF]));
+
+        if (params[INDEX_TYPE_IVF].contains(IVF_SEARCH_PARAM_FACTOR)) {
+            obj.topk_factor = params[INDEX_TYPE_IVF][IVF_SEARCH_PARAM_FACTOR];
+        }
         return obj;
     }
 
 public:
     int64_t scan_buckets_count{30};
     IVFPartitionStrategySearchParametersPtr ivf_partition_strategy_search_parameter{nullptr};
+
+    float topk_factor{2.0F};
 
 private:
     IVFSearchParameters() = default;

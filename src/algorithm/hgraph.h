@@ -59,8 +59,11 @@ public:
     }
 
     void
-    InitFeatures() override {
-        return this->init_features();
+    InitFeatures() override;
+
+    [[nodiscard]] InnerIndexPtr
+    Fork(const IndexCommonParam& param) override {
+        return std::make_shared<HGraph>(this->create_param_ptr_, param);
     }
 
     void
@@ -185,9 +188,6 @@ private:
     deserialize_basic_info(StreamReader& reader);
 
     void
-    init_features();
-
-    void
     reorder(const float* query,
             const FlattenInterfacePtr& flatten_interface,
             MaxHeap& candidate_heap,
@@ -224,9 +224,12 @@ private:
 
     InnerIdType max_capacity_{0};
 
-    const uint64_t resize_increase_count_bit_{10};  // 2^resize_increase_count_bit_ for resize count
+    uint64_t resize_increase_count_bit_{
+        DEFAULT_RESIZE_BIT};  // 2^resize_increase_count_bit_ for resize count
 
     ExtraInfoInterfacePtr extra_infos_{nullptr};
     uint64_t extra_info_size_{0};
+
+    static constexpr uint64_t DEFAULT_RESIZE_BIT = 10;
 };
 }  // namespace vsag

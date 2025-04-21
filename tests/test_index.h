@@ -99,7 +99,8 @@ protected:
                       const TestDatasetPtr& dataset,
                       const std::string& search_param,
                       float expected_recall = 0.99,
-                      bool expected_success = true);
+                      bool expected_success = true,
+                      bool use_ex_filter = false);
 
     static void
     TestSearchWithDirtyVector(const IndexPtr& index,
@@ -197,6 +198,17 @@ protected:
     TestGetExtraInfoById(const IndexPtr& index,
                          const TestDatasetPtr& dataset,
                          int64_t extra_info_size);
+
+    static void
+    TestKnnSearchExFilter(const IndexPtr& index,
+                          const TestDatasetPtr& dataset,
+                          const std::string& search_param,
+                          float expected_recall = 0.99,
+                          bool expected_success = true);
+    static void
+    TestClone(const IndexPtr& index,
+              const TestDatasetPtr& dataset,
+              const std::string& search_param);
 
     constexpr static float RECALL_THRESHOLD = 0.95;
 };

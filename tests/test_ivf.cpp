@@ -50,6 +50,7 @@ public:
         {"fp16", 0.88},
         {"sq8", 0.84},
         {"sq8_uniform", 0.83},
+        {"sq8_uniform,fp32", 0.89},
     };
 };
 
@@ -73,13 +74,28 @@ IVFTestIndex::GenerateIVFBuildParametersString(const std::string& metric_type,
         "index_param": {{
             "buckets_count": {},
             "base_quantization_type": "{}",
-            "ivf_train_type": "{}"
+            "ivf_train_type": "{}",
+            "use_reorder": {},
+            "precise_quantization_type": "{}"
         }}
     }}
     )";
-
-    build_parameters_str =
-        fmt::format(parameter_temp, metric_type, dim, buckets_count, quantization_str, train_type);
+    auto strs = fixtures::SplitString(quantization_str, ',');
+    std::string basic_quantizer_str = strs[0];
+    bool use_reorder = false;
+    std::string precise_quantizer_str = "fp32";
+    if (strs.size() == 2) {
+        use_reorder = true;
+        precise_quantizer_str = strs[1];
+    }
+    build_parameters_str = fmt::format(parameter_temp,
+                                       metric_type,
+                                       dim,
+                                       buckets_count,
+                                       basic_quantizer_str,
+                                       train_type,
+                                       use_reorder,
+                                       precise_quantizer_str);
 
     INFO(build_parameters_str);
     return build_parameters_str;
@@ -402,6 +418,29 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::IVFTestIndex, "IVF Serialize File", "[ft]
                     TestSerializeReaderSet(index, index2, dataset, search_param, name, true);
                 }
             }
+            vsag::Options::Instance().set_block_size_limit(origin_size);
+        }
+    }
+}
+
+TEST_CASE_PERSISTENT_FIXTURE(fixtures::IVFTestIndex, "IVF Clone", "[ft][ivf]") {
+    auto origin_size = vsag::Options::Instance().block_size_limit();
+    auto size = GENERATE(1024 * 1024 * 2);
+    auto metric_type = GENERATE("l2", "ip", "cosine");
+    const std::string name = "ivf";
+    auto search_param = fmt::format(search_param_tmp, 200);
+    std::string train_type = GENERATE("random", "kmeans");
+
+    for (auto& dim : dims) {
+        for (auto& [base_quantization_str, recall] : test_cases) {
+            vsag::Options::Instance().set_block_size_limit(size);
+            auto param = GenerateIVFBuildParametersString(
+                metric_type, dim, base_quantization_str, 300, train_type);
+            auto index = TestFactory(name, param, true);
+
+            auto dataset = pool.GetDatasetAndCreate(dim, base_count, metric_type);
+            TestBuildIndex(index, dataset, true);
+            TestClone(index, dataset, search_param);
             vsag::Options::Instance().set_block_size_limit(origin_size);
         }
     }

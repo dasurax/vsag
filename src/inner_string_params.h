@@ -57,6 +57,7 @@ const char* const QUANTIZATION_TYPE_VALUE_FP16 = "fp16";
 const char* const QUANTIZATION_TYPE_VALUE_BF16 = "bf16";
 const char* const QUANTIZATION_TYPE_VALUE_PQ = "pq";
 const char* const QUANTIZATION_TYPE_VALUE_RABITQ = "rabitq";
+const char* const QUANTIZATION_TYPE_VALUE_SPARSE = "sparse";
 
 const char* const PCA_DIM = "pca_dim";
 const char* const SQ4_UNIFORM_QUANTIZATION_TRUNC_RATE = "sq4_uniform_trunc_rate";
@@ -77,6 +78,9 @@ const char* const NO_BUILD_LEVELS = "no_build_levels";
 
 const char* const BUCKETS_COUNT_KEY = "buckets_count";
 const char* const IVF_SEARCH_PARAM_SCAN_BUCKETS_COUNT = "scan_buckets_count";
+const char* const IVF_SEARCH_PARAM_FACTOR = "factor";
+const char* const IVF_USE_REORDER_KEY = "use_reorder";
+const char* const IVF_PRECISE_CODES_KEY = "precise_codes";
 const char* const IVF_TRAIN_TYPE_KEY = "ivf_train_type";
 const char* const IVF_TRAIN_TYPE_RANDOM = "random";
 const char* const IVF_TRAIN_TYPE_KMEANS = "kmeans";
@@ -90,6 +94,8 @@ const char* const GNO_IMI_FIRST_ORDER_BUCKETS_COUNT_KEY = "first_order_buckets_c
 const char* const GNO_IMI_SECOND_ORDER_BUCKETS_COUNT_KEY = "second_order_buckets_count";
 
 const char* const GNO_IMI_SEARCH_PARAM_FIRST_ORDER_SCAN_RATIO = "first_order_scan_ratio";
+const char* const FLATTEN_DATA_CELL = "flatten_data_cell";
+const char* const SPARSE_VECTOR_DATA_CELL = "sparse_vector_data_cell";
 
 const std::unordered_map<std::string, std::string> DEFAULT_MAP = {
     {"INDEX_TYPE_HGRAPH", INDEX_TYPE_HGRAPH},
@@ -123,6 +129,8 @@ const std::unordered_map<std::string, std::string> DEFAULT_MAP = {
     {"BUCKET_PARAMS_KEY", BUCKET_PARAMS_KEY},
     {"IO_FILE_PATH", IO_FILE_PATH},
     {"DEFAULT_FILE_PATH_VALUE", DEFAULT_FILE_PATH_VALUE},
+    {"IVF_PRECISE_CODES_KEY", IVF_PRECISE_CODES_KEY},
+    {"IVF_USE_REORDER_KEY", IVF_USE_REORDER_KEY},
     {"SQ4_UNIFORM_QUANTIZATION_TRUNC_RATE", SQ4_UNIFORM_QUANTIZATION_TRUNC_RATE},
     {"PCA_DIM", PCA_DIM},
     {"IVF_SEARCH_PARAM_SCAN_BUCKETS_COUNT", IVF_SEARCH_PARAM_SCAN_BUCKETS_COUNT},
@@ -130,6 +138,8 @@ const std::unordered_map<std::string, std::string> DEFAULT_MAP = {
     {"GNO_IMI_SECOND_ORDER_BUCKETS_COUNT_KEY", GNO_IMI_SECOND_ORDER_BUCKETS_COUNT_KEY},
     {"BUCKETS_COUNT_KEY", BUCKETS_COUNT_KEY},
     {"IVF_TRAIN_TYPE_KEY", IVF_TRAIN_TYPE_KEY},
-    {"HGRAPH_EXTRA_INFO_KEY", HGRAPH_EXTRA_INFO_KEY}};
+    {"HGRAPH_EXTRA_INFO_KEY", HGRAPH_EXTRA_INFO_KEY},
+    {"IVF_SEARCH_PARAM_FACTOR", IVF_SEARCH_PARAM_FACTOR},
+};
 
 }  // namespace vsag

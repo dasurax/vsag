@@ -16,6 +16,7 @@
 #pragma once
 
 #include "algorithm/hnswlib/algorithm_interface.h"
+#include "algorithm/ivf_partition/ivf_partition_strategy_parameter.h"
 #include "common.h"
 #include "data_cell/flatten_interface.h"
 #include "data_cell/graph_interface.h"
@@ -38,6 +39,11 @@ public:
     float skip_ratio{0.8F};
     InnerSearchMode search_mode{KNN_SEARCH};
     int range_search_limit_size{-1};
+
+    // for ivf
+    int scan_bucket_size{1};
+    float factor{2.0F};
+    IVFPartitionStrategySearchParametersPtr ivf_partition_strategy_search_parameter{nullptr};
 };
 
 constexpr float THRESHOLD_ERROR = 2e-6;

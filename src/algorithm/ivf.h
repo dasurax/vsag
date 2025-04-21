@@ -16,6 +16,8 @@
 #pragma once
 
 #include "data_cell/bucket_datacell.h"
+#include "data_cell/flatten_interface.h"
+#include "impl/basic_searcher.h"
 #include "index/index_common_param.h"
 #include "inner_index_interface.h"
 #include "ivf_parameter.h"
@@ -43,6 +45,11 @@ public:
     [[nodiscard]] std::string
     GetName() const override {
         return INDEX_IVF;
+    }
+
+    [[nodiscard]] InnerIndexPtr
+    Fork(const IndexCommonParam& param) override {
+        return std::make_shared<IVF>(this->create_param_ptr_, param);
     }
 
     void
@@ -77,10 +84,26 @@ public:
     GetNumElements() const override;
 
 private:
+    InnerSearchParam
+    create_search_param(const std::string& parameters, const FilterPtr& filter) const;
+
+    template <InnerSearchMode mode = KNN_SEARCH>
+    MaxHeap
+    search(const DatasetPtr& query, const InnerSearchParam& param) const;
+
+    DatasetPtr
+    reorder(int64_t topk, MaxHeap& input, const float* query) const;
+
+private:
     BucketInterfacePtr bucket_{nullptr};
 
     IVFPartitionStrategyPtr partition_strategy_{nullptr};
     BucketIdType buckets_per_data_;
-    int64_t total_count_{0};
+
+    int64_t total_elements_{0};
+
+    bool use_reorder_{false};
+
+    FlattenInterfacePtr reorder_codes_{nullptr};
 };
 }  // namespace vsag
