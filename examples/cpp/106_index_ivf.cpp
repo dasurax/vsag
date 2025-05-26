@@ -22,8 +22,8 @@ main(int argc, char** argv) {
     vsag::init();
 
     /******************* Prepare Base Dataset *****************/
-    int64_t num_vectors = 1000000;
-    int64_t dim = 960;
+    int64_t num_vectors = 10000;
+    int64_t dim = 128;
     std::vector<int64_t> ids(num_vectors);
     std::vector<float> datas(num_vectors * dim);
     std::mt19937 rng(47);
@@ -46,15 +46,15 @@ main(int argc, char** argv) {
     {
         "dtype": "float32",
         "metric_type": "l2",
-        "dim": 960,
+        "dim": 128,
         "index_param": {
             "buckets_count": 50,
             "base_quantization_type": "fp32",
-            "coarse_cluster_count": 100,
-            "fine_cluster_count": 100,
+            "coarse_cluster_count": 10,
+            "fine_cluster_count": 10,
             "filter_nsq": 32,
-            "train_points_count": 500000,
-            "pq_train_points_count": 100000
+            "train_points_count": 50000,
+            "pq_train_points_count": 10000
         }
     }
     )";

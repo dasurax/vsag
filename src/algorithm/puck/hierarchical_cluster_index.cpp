@@ -1600,16 +1600,6 @@ HierarchicalClusterIndex::train(const u_int64_t kmenas_point_cnt, float* kmeans_
                sizeof(float) * _conf.feature_dim);
     }
 
-    {
-        LOG(INFO) << "old _coarse_vocab: " << _coarse_vocab[0] << " " << _coarse_vocab[99 * 960];
-        LOG(INFO) << "old _coarse_vocab: " << _fine_vocab[0] << " " << _fine_vocab[99 * 960];
-        std::ifstream infile("centroids.bin", std::ios::binary);
-        infile.read(reinterpret_cast<char*>(_coarse_vocab), 100 * 960 * sizeof(float));
-        infile.read(reinterpret_cast<char*>(_fine_vocab), 100 * 960 * sizeof(float));
-        LOG(INFO) << "new _coarse_vocab: " << _coarse_vocab[0] << " " << _coarse_vocab[99 * 960];
-        LOG(INFO) << "new _coarse_vocab: " << _fine_vocab[0] << " " << _fine_vocab[99 * 960];
-        infile.close();
-    }
     tm_cost.stop();
     LOG(INFO) << "init coarse & fine clusters and alpha vocab cost " << tm_cost.m_elapsed()
               << " ms";
