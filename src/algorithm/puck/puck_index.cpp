@@ -2337,7 +2337,6 @@ int PuckIndex::search(const Request* request, Response* response) {
         return -1;
     }
     context->set_request(request);
-   
     const float* feature = normalization(context.get(), request->feature);
     if (_conf.brutal_search || (_conf.freshness_test && request->enable_brutal)) {
         PuckMaxHeap result_heap(request->topk, response->distance, response->local_idx);
@@ -2356,7 +2355,6 @@ int PuckIndex::search(const Request* request, Response* response) {
             LOG(ERROR) << "search nearest coarse cluster error " << ret;
             return ret;
         }
-
         //计算query与二级聚类中心的距离，并根据filter特征，筛选子集
 
         tm_cost.stop();

@@ -23,7 +23,7 @@ main(int argc, char** argv) {
 
     /******************* Prepare Base Dataset *****************/
     int64_t num_vectors = 10000;
-    int64_t dim = 128;
+    int64_t dim = 32;
     std::vector<int64_t> ids(num_vectors);
     std::vector<float> datas(num_vectors * dim);
     std::mt19937 rng(47);
@@ -46,15 +46,15 @@ main(int argc, char** argv) {
     {
         "dtype": "float32",
         "metric_type": "l2",
-        "dim": 128,
+        "dim": 32,
         "index_param": {
             "buckets_count": 50,
             "base_quantization_type": "fp32",
             "coarse_cluster_count": 10,
             "fine_cluster_count": 10,
-            "filter_nsq": 32,
-            "train_points_count": 50000,
-            "pq_train_points_count": 10000
+            "filter_nsq": 8,
+            "train_points_count": 10000,
+            "pq_train_points_count": 1000
         }
     }
     )";
@@ -62,17 +62,22 @@ main(int argc, char** argv) {
 
     /******************* Build IVF Index *****************/
 
+    /*
+
     if (auto build_result = index->Build(base); build_result.has_value()) {
         std::cout << "After Build(), Index IVF contains: " << index->GetNumElements() << std::endl;
     } else if (build_result.error().type == vsag::ErrorType::INTERNAL_ERROR) {
         std::cerr << "Failed to build index: internalError" << std::endl;
         exit(-1);
     }
+    */
 
     vsag::ReaderSet reader_set;
+    std::cout << "Deserialize11 " << std::endl;
     index->Deserialize(reader_set);
+    std::cout << "Deserialize12: " << std::endl;
     /******************* Prepare Query Dataset *****************/
-    std::vector<float> query_vector(128);
+    std::vector<float> query_vector(32);
     for (int64_t i = 0; i < dim; ++i) {
         query_vector[i] = distrib_real(rng);
     }
@@ -105,7 +110,7 @@ main(int argc, char** argv) {
     auto result = index->KnnSearch(query, topk, ivf_search_parameters).value();
 
     /******************* Print Search Result *****************/
-    std::cout << "results: " << std::endl;
+    std::cout << "results2: " << result->GetDim() << std::endl;
     for (int64_t i = 0; i < result->GetDim(); ++i) {
         std::cout << result->GetIds()[i] << ": " << result->GetDistances()[i] << std::endl;
     }

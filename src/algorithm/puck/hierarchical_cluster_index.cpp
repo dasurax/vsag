@@ -88,7 +88,7 @@ readProcStatus2(const std::string& name) {
 
 DEFINE_bool(kmeans_init_berkeley, true, "using kmeans_init_berkeley");
 DEFINE_int32(kmeans_iterations_count, 2, "iterations count");
-DEFINE_int32(thread_chunk_size, 10000, "chunk size of each thread");
+DEFINE_int32(thread_chunk_size, 1000, "chunk size of each thread");
 DEFINE_int32(train_points_count, 500000, "used for HierarchicalClusterIndex train clusters");
 DEFINE_string(train_fea_file_name,
               "mid-data/train_clusters.dat",

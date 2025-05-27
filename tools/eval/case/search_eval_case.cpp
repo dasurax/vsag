@@ -152,7 +152,7 @@ SearchEvalCase::do_knn_search() {
     auto query_count = this->dataset_ptr_->GetNumberOfQuery();
     this->logger_->Debug("query count is " + std::to_string(query_count));
     std::cout << "query count is " << query_count << std::endl;
-    auto min_query = std::max(query_count, 1000L);
+    auto min_query = std::max(query_count, 10000L);
     std::cout << "query count is " << query_count << " " << min_query << std::endl;
     size_t i = 0;
     for (auto& monitor : this->monitors_) {

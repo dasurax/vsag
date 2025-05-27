@@ -234,13 +234,14 @@ IVFPQ::KnnSearch(const vsag::DatasetPtr& query,
     conf.search_fine_count = param.search_fine_count;
     conf.filter_topk = param.filter_topk;
     conf.window_size = param.window_size;
+    
     /*
     std::cout << "conf.search_coarse_count: " << conf.search_coarse_count 
         << " " << conf.search_fine_count
         << " " << conf.filter_topk
         << " " << conf.window_size << std::endl;
-    */
-    /*
+    
+    
     conf.search_coarse_count=50;
     conf.search_fine_count=200;
     conf.filter_topk=200;
@@ -340,7 +341,11 @@ IVFPQ::Deserialize(StreamReader& reader) {
     this->partition_strategy_->Deserialize(reader);
     this->label_table_->Deserialize(reader);
     */
+   std::cout << "Deserialize21: " << std::endl;
     puck_index_->init();
+    auto& conf = puck_index_->get_conf_file();
+    total_elements_ = conf.total_point_count;
+    std::cout << "Deserialize22: " << total_elements_ << std::endl;
 }
 
 }  // namespace vsag

@@ -18,7 +18,7 @@
 #include "base_filter_functor.h"
 #include "empty_index_binary_set.h"
 #include "utils/slow_task_timer.h"
-
+#include <iostream>
 namespace vsag {
 
 InnerIndexInterface::InnerIndexInterface(ParamPtr index_param, const IndexCommonParam& common_param)
@@ -41,6 +41,7 @@ InnerIndexInterface::KnnSearch(const DatasetPtr& query,
                                int64_t k,
                                const std::string& parameters,
                                const std::function<bool(int64_t)>& filter) const {
+    std::cout << "InnerIndexInterface::KnnSearch1" << std::endl;
     FilterPtr filter_ptr = nullptr;
     if (filter != nullptr) {
         filter_ptr = std::make_shared<UniqueFilter>(filter);

@@ -133,7 +133,7 @@ Engine::CreateIndex(const std::string& origin_name, const std::string& parameter
                 std::make_shared<IndexImpl<Pyramid> >(pyramid_param_obj, index_common_params);
             return pyramid_index;
         } else if (name == INDEX_IVF_PQ) {
-            logger::debug("created an ivf pq index");
+            logger::info("created an ivf pq index");
             JsonType ivf_pq_json;
             if (parsed_params.contains(INDEX_PARAM)) {
                 ivf_pq_json = std::move(parsed_params[INDEX_PARAM]);
