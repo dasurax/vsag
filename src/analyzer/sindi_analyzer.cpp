@@ -280,7 +280,11 @@ SINDIAnalyzer::collect_doc_prune_candidates(const SparseVector& query,
 
         while (computer->HasNextTerm()) {
             auto term_idx = computer->NextTermIter();
-            auto term = computer->GetTerm(term_idx);
+            auto local_term = term_list->TryMapTermToLocal(computer->GetTerm(term_idx));
+            if (not local_term.has_value()) {
+                continue;
+            }
+            auto term = local_term.value();
             if (term >= term_list->term_sizes_.size() || term_list->term_sizes_[term] == 0) {
                 continue;
             }
@@ -292,18 +296,19 @@ SINDIAnalyzer::collect_doc_prune_candidates(const SparseVector& query,
 
             if (term_list->use_quantization_) {
                 decoded_values.resize(term_size);
-                term_list->Decode(
-                    term_list->term_datas_[term]->data(), term_size, decoded_values.data());
+                term_list->Decode(term_list->GetTermDataBytes(term),
+                                  term_size,
+                                  decoded_values.data());
                 computer->ScanForAccumulate(term_idx,
-                                            term_list->term_ids_[term]->data(),
+                                            term_list->GetTermIdsData(term),
                                             decoded_values.data(),
                                             term_size,
                                             dists.data());
             } else {
                 computer->ScanForAccumulate(
                     term_idx,
-                    term_list->term_ids_[term]->data(),
-                    reinterpret_cast<const float*>(term_list->term_datas_[term]->data()),
+                    term_list->GetTermIdsData(term),
+                    reinterpret_cast<const float*>(term_list->GetTermDataBytes(term)),
                     term_size,
                     dists.data());
             }
@@ -852,8 +857,12 @@ SINDIAnalyzer::calculate_postings_scanned_stats(const DatasetPtr& query_dataset,
             }
             bool has_posting = false;
             for (const auto& window : sindi_->window_term_list_) {
-                if (window != nullptr && term < window->term_sizes_.size() &&
-                    window->term_sizes_[term] > 0) {
+                if (window == nullptr) {
+                    continue;
+                }
+                auto local_term = window->TryMapTermToLocal(term);
+                if (local_term.has_value() && local_term.value() < window->term_sizes_.size() &&
+                    window->term_sizes_[local_term.value()] > 0) {
                     has_posting = true;
                     break;
                 }

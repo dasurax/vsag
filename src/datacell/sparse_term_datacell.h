@@ -15,7 +15,11 @@
 
 #pragma once
 
+#include <cstddef>
+#include <optional>
+
 #include "algorithm/sindi/sindi_parameter.h"
+#include "hash_types.h"
 #include "impl/searcher/basic_searcher.h"
 #include "quantization/sparse_quantization//sparse_term_computer.h"
 #include "storage/stream_reader.h"
@@ -29,25 +33,45 @@ namespace vsag {
 DEFINE_POINTER(SparseTermDataCell);
 class SparseTermDataCell {
 public:
+    using MappedQueryTerms = Vector<std::pair<uint32_t, uint32_t>>;
+
     SparseTermDataCell() = default;
 
     SparseTermDataCell(float doc_retain_ratio,
                        uint32_t term_id_limit,
                        Allocator* allocator,
                        bool use_quantization,
-                       std::shared_ptr<QuantizationParams> quantization_params)
+                       std::shared_ptr<QuantizationParams> quantization_params,
+                       bool use_local_term_map = false)
         : doc_retain_ratio_(doc_retain_ratio),
           term_id_limit_(term_id_limit),
           allocator_(allocator),
           term_ids_(allocator),
           term_datas_(allocator),
           term_sizes_(allocator),
+          flat_term_offsets_(allocator),
+          flat_term_ids_(allocator),
+          flat_term_datas_(allocator),
           use_quantization_(use_quantization),
-          quantization_params_(std::move(quantization_params)) {
+          quantization_params_(std::move(quantization_params)),
+          local_to_global_terms_(allocator),
+          sorted_global_to_local_terms_(allocator),
+          use_local_term_map_(use_local_term_map) {
+        if (use_local_term_map_) {
+            global_to_local_terms_ = std::make_unique<UnorderedMap<uint32_t, uint32_t>>(allocator_);
+        }
     }
 
     void
     Query(float* global_dists, const SparseTermComputerPtr& computer) const;
+
+    void
+    MapQueryTerms(const SparseTermComputerPtr& computer, MappedQueryTerms& mapped_terms) const;
+
+    void
+    QueryByMappedTerms(float* global_dists,
+                       const SparseTermComputerPtr& computer,
+                       const MappedQueryTerms& mapped_terms) const;
 
     /**
      * @brief Insert candidates into heap by iterating through term lists
@@ -66,6 +90,16 @@ public:
                           MaxHeap& heap,
                           const InnerSearchParam& param,
                           uint32_t offset_id) const;
+
+    template <InnerSearchMode mode = InnerSearchMode::KNN_SEARCH,
+              InnerSearchType type = InnerSearchType::PURE>
+    void
+    InsertHeapByMappedTerms(float* dists,
+                            const SparseTermComputerPtr& computer,
+                            const MappedQueryTerms& mapped_terms,
+                            MaxHeap& heap,
+                            const InnerSearchParam& param,
+                            uint32_t offset_id) const;
 
     /**
      * @brief Insert candidates into heap directly from precomputed distance array
@@ -92,10 +126,51 @@ public:
     InsertVector(const SparseVector& sparse_base, uint16_t base_id);
 
     void
+    InsertSortedVector(const Vector<std::pair<uint32_t, float>>& sorted_base, uint16_t base_id);
+
+    void
+    BuildFlatFromSortedVectors(Vector<Vector<std::pair<uint32_t, float>>>& sorted_bases);
+
+    void
     ResizeTermList(InnerIdType new_term_capacity);
+
+    uint32_t
+    MapTermToLocalForBuild(uint32_t global_term);
+
+    uint32_t
+    MapTermToLocalForFlatBuild(uint32_t global_term);
+
+    [[nodiscard]] std::optional<uint32_t>
+    TryMapTermToLocal(uint32_t global_term) const;
+
+    [[nodiscard]] uint32_t
+    GetGlobalTerm(uint32_t local_term) const;
+
+    void
+    BuildSortedTermLookup();
 
     void
     Serialize(StreamWriter& writer) const;
+
+    void
+    ShrinkTermList();
+
+    void
+    FlattenTermLists();
+
+    [[nodiscard]] bool
+    IsFlatStorage() const {
+        return use_flat_storage_;
+    }
+
+    [[nodiscard]] const uint16_t*
+    GetTermIdsData(uint32_t term) const;
+
+    [[nodiscard]] const uint8_t*
+    GetTermDataBytes(uint32_t term) const;
+
+    [[nodiscard]] size_t
+    GetTermDataByteSize(uint32_t term) const;
 
     void
     Deserialize(StreamReader& reader);
@@ -148,6 +223,22 @@ public:
     Vector<std::unique_ptr<Vector<uint8_t>>> term_datas_;
 
     Vector<uint32_t> term_sizes_;
+
+    Vector<uint32_t> flat_term_offsets_;
+
+    Vector<uint16_t> flat_term_ids_;
+
+    Vector<uint8_t> flat_term_datas_;
+
+    bool use_flat_storage_{false};
+
+    std::unique_ptr<UnorderedMap<uint32_t, uint32_t>> global_to_local_terms_{nullptr};
+
+    Vector<uint32_t> local_to_global_terms_;
+
+    Vector<std::pair<uint32_t, uint32_t>> sorted_global_to_local_terms_;
+
+    bool use_local_term_map_{false};
 
     Allocator* const allocator_{nullptr};
 

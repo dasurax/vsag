@@ -15,7 +15,10 @@
 
 #include "sindi.h"
 
+#include <shared_mutex>
+
 #include "analyzer/analyzer.h"
+#include "hash_types.h"
 #include "impl/heap/standard_heap.h"
 #include "index_feature_list.h"
 #include "storage/serialization.h"
@@ -129,14 +132,34 @@ SINDI::Add(const DatasetPtr& base, AddMode mode) {
                                                                             term_id_limit_,
                                                                             allocator_,
                                                                             use_quantization_,
-                                                                            quantization_params_));
+                                                                            quantization_params_,
+                                                                            remap_term_ids_));
         window_changed = true;
     }
 
     // add process
     Vector<uint32_t> tmp_ids(allocator_);
+    bool flattened_window = false;
+    auto flatten_completed_window = [&](int64_t window_id) {
+        if (window_id < 0 || window_id >= static_cast<int64_t>(window_term_list_.size())) {
+            return;
+        }
+        if ((window_id + 1) * window_size_ > cur_element_count_) {
+            return;
+        }
+        auto& term_list = window_term_list_[window_id];
+        if (term_list != nullptr && not term_list->IsFlatStorage()) {
+            term_list->FlattenTermLists();
+            flattened_window = true;
+        }
+    };
+    int64_t last_insert_window = -1;
     for (uint32_t i = 0; i < data_num; ++i) {
         auto cur_window = cur_element_count_ / window_size_;
+        if (last_insert_window >= 0 && cur_window != last_insert_window) {
+            flatten_completed_window(last_insert_window);
+        }
+        last_insert_window = cur_window;
         auto window_start_id = cur_window * window_size_;
         const auto& sparse_vector = sparse_vectors[i];
         if (label_table_->CheckLabel(ids[i])) {
@@ -192,7 +215,11 @@ SINDI::Add(const DatasetPtr& base, AddMode mode) {
             rerank_flat_index_->Add(single_base);
         }
     }
-    if (window_changed) {
+    for (int64_t window_id = 0; window_id < static_cast<int64_t>(window_term_list_.size());
+         ++window_id) {
+        flatten_completed_window(window_id);
+    }
+    if (window_changed || flattened_window) {
         this->cal_memory_usage();
     }
     return failed_ids;
@@ -200,8 +227,170 @@ SINDI::Add(const DatasetPtr& base, AddMode mode) {
 
 std::vector<int64_t>
 SINDI::Build(const DatasetPtr& base) {
-    // note that there's a wlock in Add()
-    return this->Add(base);
+    std::unique_lock<std::shared_mutex> wlock(this->global_mutex_);
+    if (cur_element_count_ != 0) {
+        wlock.unlock();
+        return this->Add(base);
+    }
+
+    std::vector<int64_t> failed_ids;
+
+    auto data_num = base->GetNumElements();
+    CHECK_ARGUMENT(data_num > 0, "data_num is zero when build vectors");
+
+    const auto* sparse_vectors = base->GetSparseVectors();
+    const auto* ids = base->GetIds();
+    const auto* extra_info = base->GetExtraInfos();
+    const auto extra_info_size = base->GetExtraInfoSize();
+
+    if (use_quantization_) {
+        float min_val = std::numeric_limits<float>::max();
+        float max_val = std::numeric_limits<float>::lowest();
+        for (int64_t i = 0; i < data_num; ++i) {
+            const auto& vec = sparse_vectors[i];
+            for (int j = 0; j < vec.len_; ++j) {
+                float val = vec.vals_[j];
+                if (val < min_val) {
+                    min_val = val;
+                }
+                if (val > max_val) {
+                    max_val = val;
+                }
+            }
+        }
+        quantization_params_->min_val = min_val;
+        quantization_params_->max_val = max_val;
+        quantization_params_->diff = max_val - min_val;
+        if (quantization_params_->diff < 1e-6) {
+            quantization_params_->diff = 1.0F;
+        }
+    }
+
+    auto make_window_cell = [this]() {
+        return std::make_shared<SparseTermDataCell>(doc_retain_ratio_,
+                                                    term_id_limit_,
+                                                    allocator_,
+                                                    use_quantization_,
+                                                    quantization_params_,
+                                                    remap_term_ids_);
+    };
+
+    Vector<Vector<std::pair<uint32_t, float>>> sorted_window(allocator_);
+    Vector<int64_t> label_window(allocator_);
+    Vector<uint32_t> source_index_window(allocator_);
+    sorted_window.reserve(static_cast<size_t>(window_size_));
+    label_window.reserve(static_cast<size_t>(window_size_));
+    source_index_window.reserve(static_cast<size_t>(window_size_));
+    auto current_window = make_window_cell();
+
+    auto flush_window = [&]() {
+        if (sorted_window.empty()) {
+            return;
+        }
+        if (sorted_window.size() == static_cast<size_t>(window_size_)) {
+            current_window->BuildFlatFromSortedVectors(sorted_window);
+        } else {
+            for (size_t i = 0; i < sorted_window.size(); ++i) {
+                current_window->InsertSortedVector(sorted_window[i], static_cast<uint16_t>(i));
+            }
+        }
+
+        auto window_start_id = cur_element_count_;
+        window_term_list_.push_back(current_window);
+        for (size_t i = 0; i < label_window.size(); ++i) {
+            label_table_->Insert(window_start_id + static_cast<int64_t>(i), label_window[i]);
+            if (extra_info_size > 0) {
+                auto source_idx = source_index_window[i];
+                extra_infos_->InsertExtraInfo(extra_info + source_idx * extra_info_size,
+                                              window_start_id + static_cast<int64_t>(i));
+            }
+        }
+        cur_element_count_ += static_cast<int64_t>(sorted_window.size());
+
+        if (use_reorder_) {
+            for (uint32_t source_idx : source_index_window) {
+                auto single_base = Dataset::Make();
+                single_base->NumElements(1)
+                    ->SparseVectors(sparse_vectors + source_idx)
+                    ->Ids(ids + source_idx)
+                    ->Owner(false);
+                rerank_flat_index_->Add(single_base);
+            }
+        }
+
+        sorted_window.clear();
+        label_window.clear();
+        source_index_window.clear();
+        current_window = make_window_cell();
+    };
+
+    UnorderedSet<int64_t> seen_labels(allocator_);
+    seen_labels.reserve(static_cast<size_t>(data_num));
+    Vector<uint32_t> tmp_ids(allocator_);
+    for (int64_t i = 0; i < data_num; ++i) {
+        const auto& sparse_vector = sparse_vectors[i];
+        if (label_table_->CheckLabel(ids[i]) || seen_labels.find(ids[i]) != seen_labels.end()) {
+            failed_ids.push_back(ids[i]);
+            logger::warn("id ({}) already exists", ids[i]);
+            continue;
+        }
+        if (sparse_vector.len_ <= 0) {
+            failed_ids.push_back(ids[i]);
+            logger::warn(
+                "sparse_vector.len_ ({}) is invalid for id ({})", sparse_vector.len_, ids[i]);
+            continue;
+        }
+
+        try {
+            SparseVector effective_vector = sparse_vector;
+            if (remap_term_ids_) {
+                effective_vector = remap_sparse_vector_for_build(sparse_vector, tmp_ids);
+            } else {
+                uint32_t max_term_id = 0;
+                for (uint32_t term_idx = 0; term_idx < sparse_vector.len_; ++term_idx) {
+                    max_term_id = std::max(max_term_id, sparse_vector.ids_[term_idx]);
+                }
+                if (max_term_id > term_id_limit_) {
+                    throw VsagException(
+                        ErrorType::INVALID_ARGUMENT,
+                        fmt::format(
+                            "max term id of sparse vector {} is greater than term id limit {}",
+                            max_term_id,
+                            term_id_limit_));
+                }
+            }
+
+            Vector<std::pair<uint32_t, float>> sorted_base(allocator_);
+            sort_sparse_vector(effective_vector, sorted_base);
+            current_window->DocPrune(sorted_base);
+
+            sorted_window.emplace_back(allocator_);
+            sorted_window.back().swap(sorted_base);
+            label_window.push_back(ids[i]);
+            source_index_window.push_back(static_cast<uint32_t>(i));
+            seen_labels.insert(ids[i]);
+        } catch (const std::runtime_error& e) {
+            failed_ids.push_back(ids[i]);
+            logger::warn("runtime error: {}", e.what());
+            continue;
+        } catch (const VsagException& e) {
+            failed_ids.push_back(ids[i]);
+            logger::warn("vsag exception: {}", e.what());
+            continue;
+        } catch (const std::bad_alloc& e) {
+            failed_ids.push_back(ids[i]);
+            logger::warn("memory allocation failed: {}", e.what());
+            continue;
+        }
+
+        if (sorted_window.size() == static_cast<size_t>(window_size_)) {
+            flush_window();
+        }
+    }
+    flush_window();
+
+    this->cal_memory_usage();
+    return failed_ids;
 }
 
 bool
@@ -307,23 +496,25 @@ SINDI::search_impl(const SparseTermComputerPtr& computer,
 
     // window iteration
     Vector<float> dists(window_size_, 0.0, allocator);
+    SparseTermDataCell::MappedQueryTerms mapped_query_terms(allocator);
     auto filter = inner_param.is_inner_id_allowed;
     const auto [min_window_id, max_window_id] = this->get_min_max_window_id(filter);
     for (auto cur = min_window_id; cur <= max_window_id; cur++) {
         auto window_start_id = cur * window_size_;
         auto term_list = this->window_term_list_[cur];
+        term_list->MapQueryTerms(computer, mapped_query_terms);
 
         // compute
-        term_list->Query(dists.data(), computer);
+        term_list->QueryByMappedTerms(dists.data(), computer, mapped_query_terms);
 
         // insert heap
         if (use_term_lists_heap_insert) {
             if (inner_param.is_inner_id_allowed) {
-                term_list->InsertHeapByTermLists<mode, WITH_FILTER>(
-                    dists.data(), computer, heap, inner_param, window_start_id);
+                term_list->InsertHeapByMappedTerms<mode, WITH_FILTER>(
+                    dists.data(), computer, mapped_query_terms, heap, inner_param, window_start_id);
             } else {
-                term_list->InsertHeapByTermLists<mode, PURE>(
-                    dists.data(), computer, heap, inner_param, window_start_id);
+                term_list->InsertHeapByMappedTerms<mode, PURE>(
+                    dists.data(), computer, mapped_query_terms, heap, inner_param, window_start_id);
             }
         } else {
             if (inner_param.is_inner_id_allowed) {
@@ -539,8 +730,12 @@ SINDI::Deserialize(StreamReader& reader) {
     StreamReader::ReadObj(reader_ref, window_term_list_size);
     window_term_list_.resize(window_term_list_size);
     for (auto& window : window_term_list_) {
-        window = std::make_shared<SparseTermDataCell>(
-            doc_retain_ratio_, term_id_limit_, allocator_, use_quantization_, quantization_params_);
+        window = std::make_shared<SparseTermDataCell>(doc_retain_ratio_,
+                                                      term_id_limit_,
+                                                      allocator_,
+                                                      use_quantization_,
+                                                      quantization_params_,
+                                                      remap_term_ids_);
         window->Deserialize(reader_ref);
     }
 

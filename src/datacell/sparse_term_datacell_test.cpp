@@ -15,6 +15,8 @@
 
 #include "sparse_term_datacell.h"
 
+#include <sstream>
+
 #include "impl/allocator/safe_allocator.h"
 #include "unittest.h"
 
@@ -239,6 +241,248 @@ TEST_CASE("SparseTermDatacell Basic Test", "[ut][SparseTermDatacell]") {
     delete[] query_sv.vals_;
 }
 
+TEST_CASE("SparseTermDatacell Deserialize Shrinks Empty Tail", "[ut][SparseTermDatacell]") {
+    auto allocator = SafeAllocator::FactoryDefaultAllocator();
+    std::shared_ptr<QuantizationParams> q_params = nullptr;
+    SparseTermDataCell data_cell(1.0F, DEFAULT_TERM_ID_LIMIT, allocator.get(), false, q_params);
+
+    std::vector<uint32_t> ids = {2, 9};
+    std::vector<float> vals = {0.2F, 0.9F};
+    SparseVector sv;
+    sv.len_ = static_cast<uint32_t>(ids.size());
+    sv.ids_ = ids.data();
+    sv.vals_ = vals.data();
+    data_cell.InsertVector(sv, 0);
+
+    auto capacity_after_insert = data_cell.term_capacity_;
+    data_cell.ResizeTermList(32);
+    REQUIRE(data_cell.term_capacity_ >= 32);
+    REQUIRE(capacity_after_insert < data_cell.term_capacity_);
+
+    std::stringstream ss;
+    IOStreamWriter writer(ss);
+    data_cell.Serialize(writer);
+
+    SparseTermDataCell restored(1.0F, DEFAULT_TERM_ID_LIMIT, allocator.get(), false, q_params);
+    IOStreamReader reader(ss);
+    restored.Deserialize(reader);
+
+    REQUIRE(restored.term_capacity_ == 10);
+    REQUIRE(restored.term_sizes_.size() == 10);
+}
+
+TEST_CASE("SparseTermDatacell Local Term Remap Round Trip", "[ut][SparseTermDatacell]") {
+    auto allocator = SafeAllocator::FactoryDefaultAllocator();
+    std::shared_ptr<QuantizationParams> q_params = nullptr;
+    SparseTermDataCell data_cell(
+        1.0F, DEFAULT_TERM_ID_LIMIT, allocator.get(), false, q_params, true);
+
+    std::vector<uint32_t> ids0 = {100, 999999};
+    std::vector<float> vals0 = {1.0F, 2.0F};
+    SparseVector sv0;
+    sv0.len_ = static_cast<uint32_t>(ids0.size());
+    sv0.ids_ = ids0.data();
+    sv0.vals_ = vals0.data();
+    data_cell.InsertVector(sv0, 0);
+
+    std::vector<uint32_t> ids1 = {999999};
+    std::vector<float> vals1 = {3.0F};
+    SparseVector sv1;
+    sv1.len_ = static_cast<uint32_t>(ids1.size());
+    sv1.ids_ = ids1.data();
+    sv1.vals_ = vals1.data();
+    data_cell.InsertVector(sv1, 1);
+
+    REQUIRE(data_cell.use_local_term_map_);
+    REQUIRE(data_cell.local_to_global_terms_.size() == 2);
+    REQUIRE(data_cell.term_capacity_ == 2);
+    REQUIRE(data_cell.term_sizes_.size() == 2);
+
+    std::vector<uint32_t> q_ids = {999999};
+    std::vector<float> q_vals = {1.0F};
+    SparseVector query;
+    query.len_ = static_cast<uint32_t>(q_ids.size());
+    query.ids_ = q_ids.data();
+    query.vals_ = q_vals.data();
+    SINDISearchParameter search_params;
+    search_params.term_prune_ratio = 0;
+    search_params.query_prune_ratio = 0;
+    auto computer = std::make_shared<SparseTermComputer>(query, search_params, allocator.get());
+    std::vector<float> dists(2, 0);
+    data_cell.Query(dists.data(), computer);
+    REQUIRE(std::abs(dists[0] - (-2.0F)) < 1e-3);
+    REQUIRE(std::abs(dists[1] - (-3.0F)) < 1e-3);
+
+    std::stringstream ss;
+    IOStreamWriter writer(ss);
+    data_cell.Serialize(writer);
+
+    SparseTermDataCell restored(
+        1.0F, DEFAULT_TERM_ID_LIMIT, allocator.get(), false, q_params, true);
+    IOStreamReader reader(ss);
+    restored.Deserialize(reader);
+    REQUIRE(restored.IsFlatStorage());
+    REQUIRE(restored.local_to_global_terms_.size() == 2);
+    REQUIRE(restored.term_capacity_ == 2);
+
+    SparseVector restored_sv;
+    restored.GetSparseVector(0, &restored_sv, allocator.get());
+    REQUIRE(restored_sv.len_ == 2);
+    allocator->Deallocate(restored_sv.ids_);
+    allocator->Deallocate(restored_sv.vals_);
+}
+
+TEST_CASE("SparseTermDatacell Local Term Remap Equivalent To Direct Terms",
+          "[ut][SparseTermDatacell]") {
+    auto allocator = SafeAllocator::FactoryDefaultAllocator();
+    std::shared_ptr<QuantizationParams> q_params = nullptr;
+    SparseTermDataCell direct_cell(
+        1.0F, DEFAULT_TERM_ID_LIMIT, allocator.get(), false, q_params, false);
+    SparseTermDataCell local_cell(
+        1.0F, DEFAULT_TERM_ID_LIMIT, allocator.get(), false, q_params, true);
+    SparseTermDataCell flat_cell(
+        1.0F, DEFAULT_TERM_ID_LIMIT, allocator.get(), false, q_params, true);
+
+    std::vector<std::vector<uint32_t>> doc_ids = {
+        {999999, 42, 7},
+        {42, 500000, 123456},
+        {8, 999999},
+        {7, 123456, 500000, 999999},
+    };
+    std::vector<std::vector<float>> doc_vals = {
+        {2.0F, 1.5F, 0.5F},
+        {0.7F, 1.1F, 2.3F},
+        {3.1F, 0.4F},
+        {0.9F, 0.6F, 1.8F, 2.2F},
+    };
+
+    auto make_sv = [](std::vector<uint32_t>& ids, std::vector<float>& vals) {
+        SparseVector sv;
+        sv.len_ = static_cast<uint32_t>(ids.size());
+        sv.ids_ = ids.data();
+        sv.vals_ = vals.data();
+        return sv;
+    };
+
+    for (uint16_t i = 0; i < doc_ids.size(); ++i) {
+        auto sv = make_sv(doc_ids[i], doc_vals[i]);
+        direct_cell.InsertVector(sv, i);
+        local_cell.InsertVector(sv, i);
+    }
+
+    Vector<Vector<std::pair<uint32_t, float>>> sorted_docs(allocator.get());
+    for (uint32_t i = 0; i < doc_ids.size(); ++i) {
+        auto sv = make_sv(doc_ids[i], doc_vals[i]);
+        Vector<std::pair<uint32_t, float>> sorted_doc(allocator.get());
+        sort_sparse_vector(sv, sorted_doc);
+        sorted_docs.emplace_back(allocator.get());
+        sorted_docs.back().swap(sorted_doc);
+    }
+    flat_cell.BuildFlatFromSortedVectors(sorted_docs);
+    REQUIRE(flat_cell.IsFlatStorage());
+
+    REQUIRE(local_cell.use_local_term_map_);
+    REQUIRE(local_cell.local_to_global_terms_.size() == 6);
+    REQUIRE(local_cell.local_to_global_terms_.size() < direct_cell.term_capacity_);
+    REQUIRE(flat_cell.local_to_global_terms_.size() == 6);
+
+    local_cell.FlattenTermLists();
+    REQUIRE(local_cell.IsFlatStorage());
+
+    std::stringstream ss;
+    IOStreamWriter writer(ss);
+    local_cell.Serialize(writer);
+    SparseTermDataCell restored_local(
+        1.0F, DEFAULT_TERM_ID_LIMIT, allocator.get(), false, q_params, true);
+    IOStreamReader reader(ss);
+    restored_local.Deserialize(reader);
+    REQUIRE(restored_local.IsFlatStorage());
+
+    auto sparse_vector_to_map = [&](SparseTermDataCell& cell, uint32_t base_id) {
+        SparseVector sv;
+        cell.GetSparseVector(base_id, &sv, allocator.get());
+        std::map<uint32_t, float> result;
+        for (uint32_t i = 0; i < sv.len_; ++i) {
+            result[sv.ids_[i]] = sv.vals_[i];
+        }
+        allocator->Deallocate(sv.ids_);
+        allocator->Deallocate(sv.vals_);
+        return result;
+    };
+
+    for (uint32_t base_id = 0; base_id < doc_ids.size(); ++base_id) {
+        auto direct_map = sparse_vector_to_map(direct_cell, base_id);
+        auto local_map = sparse_vector_to_map(local_cell, base_id);
+        auto flat_map = sparse_vector_to_map(flat_cell, base_id);
+        auto restored_map = sparse_vector_to_map(restored_local, base_id);
+        REQUIRE(local_map == direct_map);
+        REQUIRE(flat_map == direct_map);
+        REQUIRE(restored_map == direct_map);
+    }
+
+    std::vector<std::vector<uint32_t>> query_ids = {
+        {999999, 42, 777777},
+        {7, 8, 123456, 500000},
+        {777777, 888888},
+    };
+    std::vector<std::vector<float>> query_vals = {
+        {1.0F, 0.25F, 4.0F},
+        {0.5F, 1.2F, 0.75F, 0.3F},
+        {2.0F, 3.0F},
+    };
+
+    SINDISearchParameter search_params;
+    search_params.term_prune_ratio = 0;
+    search_params.query_prune_ratio = 0;
+    InnerSearchParam inner_param;
+    inner_param.ef = 3;
+
+    auto extract_heap = [](MaxHeap& heap) {
+        std::vector<std::pair<float, InnerIdType>> result;
+        while (not heap.empty()) {
+            result.push_back(heap.top());
+            heap.pop();
+        }
+        return result;
+    };
+
+    auto compare_cell_with_direct = [&](SparseTermDataCell& candidate_cell,
+                                        const SparseVector& query) {
+        std::vector<float> direct_dists(doc_ids.size(), 0.0F);
+        std::vector<float> candidate_dists(doc_ids.size(), 0.0F);
+        auto direct_computer =
+            std::make_shared<SparseTermComputer>(query, search_params, allocator.get());
+        auto candidate_computer =
+            std::make_shared<SparseTermComputer>(query, search_params, allocator.get());
+        direct_cell.Query(direct_dists.data(), direct_computer);
+        candidate_cell.Query(candidate_dists.data(), candidate_computer);
+        for (uint32_t i = 0; i < doc_ids.size(); ++i) {
+            REQUIRE(std::abs(candidate_dists[i] - direct_dists[i]) < 1e-6F);
+        }
+
+        MaxHeap direct_heap(allocator.get());
+        MaxHeap candidate_heap(allocator.get());
+        direct_cell.InsertHeapByTermLists<KNN_SEARCH, PURE>(
+            direct_dists.data(), direct_computer, direct_heap, inner_param, 0);
+        candidate_cell.InsertHeapByTermLists<KNN_SEARCH, PURE>(
+            candidate_dists.data(), candidate_computer, candidate_heap, inner_param, 0);
+        REQUIRE(extract_heap(candidate_heap) == extract_heap(direct_heap));
+
+        for (uint16_t base_id = 0; base_id < doc_ids.size(); ++base_id) {
+            auto direct_dist = direct_cell.CalcDistanceByInnerId(direct_computer, base_id);
+            auto candidate_dist = candidate_cell.CalcDistanceByInnerId(candidate_computer, base_id);
+            REQUIRE(std::abs(candidate_dist - direct_dist) < 1e-6F);
+        }
+    };
+
+    for (uint32_t i = 0; i < query_ids.size(); ++i) {
+        auto query = make_sv(query_ids[i], query_vals[i]);
+        compare_cell_with_direct(local_cell, query);
+        compare_cell_with_direct(flat_cell, query);
+        compare_cell_with_direct(restored_local, query);
+    }
+}
+
 TEST_CASE("SparseTermDatacell Encode/Decode Test", "[ut][SparseTermDatacell]") {
     auto allocator = SafeAllocator::FactoryDefaultAllocator();
 
@@ -264,6 +508,8 @@ TEST_CASE("SparseTermDatacell Encode/Decode Test", "[ut][SparseTermDatacell]") {
     // Insert vector (tests Encode)
     uint16_t base_id = 5;
     data_cell->InsertVector(sv, base_id);
+    data_cell->FlattenTermLists();
+    REQUIRE(data_cell->IsFlatStorage());
 
     // Get vector (tests Decode)
     SparseVector retrieved_sv;
