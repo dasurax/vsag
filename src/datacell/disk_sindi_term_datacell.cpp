@@ -34,16 +34,14 @@ namespace {
 
 template <typename IOTmpl>
 DiskSindiTermDataCellInterfacePtr
-make_disk_sindi_term_datacell(float doc_retain_ratio,
-                              uint32_t term_id_limit,
+make_disk_sindi_term_datacell(uint32_t term_id_limit,
                               Allocator* allocator,
                               SparseValueQuantizationType sparse_value_quant_type,
                               QuantizationParamsPtr quantization_params,
                               uint32_t window_size,
                               const IOParamPtr& io_param,
                               const IndexCommonParam& common_param) {
-    return std::make_shared<DiskSindiTermDataCell<IOTmpl>>(doc_retain_ratio,
-                                                           term_id_limit,
+    return std::make_shared<DiskSindiTermDataCell<IOTmpl>>(term_id_limit,
                                                            allocator,
                                                            sparse_value_quant_type,
                                                            std::move(quantization_params),
@@ -65,8 +63,7 @@ make_buffer_io_param_from_async(const IOParamPtr& io_param) {
 }  // namespace
 
 DiskSindiTermDataCellInterfacePtr
-DiskSindiTermDataCellInterface::MakeInstance(float doc_retain_ratio,
-                                             uint32_t term_id_limit,
+DiskSindiTermDataCellInterface::MakeInstance(uint32_t term_id_limit,
                                              Allocator* allocator,
                                              SparseValueQuantizationType sparse_value_quant_type,
                                              QuantizationParamsPtr quantization_params,
@@ -76,8 +73,7 @@ DiskSindiTermDataCellInterface::MakeInstance(float doc_retain_ratio,
     CHECK_ARGUMENT(io_param != nullptr, "invalid term io parameter");
     auto io_type_name = io_param->GetTypeName();
     if (io_type_name == IO_TYPE_VALUE_MMAP_IO) {
-        return make_disk_sindi_term_datacell<MMapIO>(doc_retain_ratio,
-                                                     term_id_limit,
+        return make_disk_sindi_term_datacell<MMapIO>(term_id_limit,
                                                      allocator,
                                                      sparse_value_quant_type,
                                                      std::move(quantization_params),
@@ -86,8 +82,7 @@ DiskSindiTermDataCellInterface::MakeInstance(float doc_retain_ratio,
                                                      common_param);
     }
     if (io_type_name == IO_TYPE_VALUE_BUFFER_IO) {
-        return make_disk_sindi_term_datacell<BufferIO>(doc_retain_ratio,
-                                                       term_id_limit,
+        return make_disk_sindi_term_datacell<BufferIO>(term_id_limit,
                                                        allocator,
                                                        sparse_value_quant_type,
                                                        std::move(quantization_params),
@@ -97,8 +92,7 @@ DiskSindiTermDataCellInterface::MakeInstance(float doc_retain_ratio,
     }
     if (io_type_name == IO_TYPE_VALUE_ASYNC_IO) {
 #if HAVE_LIBAIO
-        return make_disk_sindi_term_datacell<AsyncIO>(doc_retain_ratio,
-                                                      term_id_limit,
+        return make_disk_sindi_term_datacell<AsyncIO>(term_id_limit,
                                                       allocator,
                                                       sparse_value_quant_type,
                                                       std::move(quantization_params),
@@ -106,8 +100,7 @@ DiskSindiTermDataCellInterface::MakeInstance(float doc_retain_ratio,
                                                       io_param,
                                                       common_param);
 #else
-        return make_disk_sindi_term_datacell<BufferIO>(doc_retain_ratio,
-                                                       term_id_limit,
+        return make_disk_sindi_term_datacell<BufferIO>(term_id_limit,
                                                        allocator,
                                                        sparse_value_quant_type,
                                                        std::move(quantization_params),
@@ -117,8 +110,7 @@ DiskSindiTermDataCellInterface::MakeInstance(float doc_retain_ratio,
 #endif
     }
     if (io_type_name == IO_TYPE_VALUE_READER_IO) {
-        return make_disk_sindi_term_datacell<ReaderIO>(doc_retain_ratio,
-                                                       term_id_limit,
+        return make_disk_sindi_term_datacell<ReaderIO>(term_id_limit,
                                                        allocator,
                                                        sparse_value_quant_type,
                                                        std::move(quantization_params),
@@ -132,7 +124,6 @@ DiskSindiTermDataCellInterface::MakeInstance(float doc_retain_ratio,
 
 template <typename IOTmpl>
 DiskSindiTermDataCell<IOTmpl>::DiskSindiTermDataCell(
-    float,
     uint32_t term_id_limit,
     Allocator* allocator,
     SparseValueQuantizationType sparse_value_quant_type,

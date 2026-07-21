@@ -53,8 +53,7 @@ TEST_CASE("DiskSindiTermDataCell restores payload io", "[ut][DiskSindiTermDataCe
     vector.ids_ = ids;
     vector.vals_ = vals;
     auto source =
-        std::make_shared<MutableSindiTermDataCell>(1.0F,
-                                                   term_id_limit,
+        std::make_shared<MutableSindiTermDataCell>(term_id_limit,
                                                    window_size,
                                                    common_param.allocator_.get(),
                                                    SparseValueQuantizationType::FP32,
@@ -78,8 +77,7 @@ TEST_CASE("DiskSindiTermDataCell restores payload io", "[ut][DiskSindiTermDataCe
     REQUIRE(writer.GetCursor() == payload_size_offset + sizeof(uint64_t) + payload_size);
     stream.seekg(0, std::ios::beg);
 
-    auto restored = DiskSindiTermDataCellInterface::MakeInstance(1.0F,
-                                                                 term_id_limit,
+    auto restored = DiskSindiTermDataCellInterface::MakeInstance(term_id_limit,
                                                                  common_param.allocator_.get(),
                                                                  false,
                                                                  nullptr,
@@ -119,8 +117,7 @@ TEST_CASE("DiskSindiTermDataCell expands sparse window metadata", "[ut][DiskSind
     auto io_param = IOParameter::GetIOParameterByJson(JsonType::Parse(
         fmt::format(R"({{"type":"mmap_io","file_path":"{}"}})", dir.GenerateRandomFile(true))));
     auto source =
-        std::make_shared<MutableSindiTermDataCell>(1.0F,
-                                                   term_id_limit,
+        std::make_shared<MutableSindiTermDataCell>(term_id_limit,
                                                    window_size,
                                                    common_param.allocator_.get(),
                                                    SparseValueQuantizationType::FP32,
@@ -169,8 +166,7 @@ TEST_CASE("DiskSindiTermDataCell expands sparse window metadata", "[ut][DiskSind
     REQUIRE(second.window_id == 2);
     REQUIRE(second.posting_count == 1);
 
-    auto restored = DiskSindiTermDataCellInterface::MakeInstance(1.0F,
-                                                                 term_id_limit,
+    auto restored = DiskSindiTermDataCellInterface::MakeInstance(term_id_limit,
                                                                  common_param.allocator_.get(),
                                                                  false,
                                                                  nullptr,
@@ -202,6 +198,6 @@ TEST_CASE("DiskSindiTermDataCell rejects memory io", "[ut][DiskSindiTermDataCell
 
     REQUIRE_THROWS_WITH(
         DiskSindiTermDataCellInterface::MakeInstance(
-            1.0F, 10, common_param.allocator_.get(), false, nullptr, 10000, io_param, common_param),
+            10, common_param.allocator_.get(), false, nullptr, 10000, io_param, common_param),
         Catch::Matchers::ContainsSubstring("unsupported SINDIV2 term io type"));
 }
