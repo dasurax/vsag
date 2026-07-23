@@ -50,6 +50,7 @@ constexpr int64_t SINDI_V2_TERM_LAYOUT_VERSION = 1;
 constexpr const char* SINDI_V2_TERM_LAYOUT_KIND_KEY = "sindi_v2_term_layout_kind";
 constexpr const char* SINDI_V2_TERM_LAYOUT_KIND = "term";
 constexpr const char* SINDI_V2_RERANK_LAYOUT_NONE = "none";
+constexpr uint32_t SINDI_V2_FILE_RERANK_BATCH_SIZE = 4096;
 constexpr const char* SINDI_V2_RERANK_LAYOUT_TOP_TERMS_SIGNATURE = "top_terms_signature";
 
 class BinaryReader : public Reader {
@@ -203,6 +204,57 @@ create_rerank_flat(const IndexCommonParam& common_param, const IOParamPtr& io_pa
     return FlattenInterface::MakeInstance(rerank_param, common_param);
 }
 
+bool
+should_batch_file_rerank(const IOParamPtr& io_param) {
+    if (io_param == nullptr) {
+        return false;
+    }
+    const auto& type = io_param->GetTypeName();
+    return type == IO_TYPE_VALUE_BUFFER_IO || type == IO_TYPE_VALUE_ASYNC_IO ||
+           type == IO_TYPE_VALUE_MMAP_IO;
+}
+
+class RerankBuildBatcher {
+public:
+    RerankBuildBatcher(FlattenInterfacePtr rerank_flat, const IOParamPtr& io_param)
+        : rerank_flat_(std::move(rerank_flat)), enabled_(should_batch_file_rerank(io_param)) {
+        if (enabled_) {
+            vectors_.reserve(SINDI_V2_FILE_RERANK_BATCH_SIZE);
+            ids_.reserve(SINDI_V2_FILE_RERANK_BATCH_SIZE);
+        }
+    }
+
+    void
+    Insert(const SparseVector* vector, InnerIdType inner_id) {
+        if (not enabled_) {
+            rerank_flat_->InsertVector(vector, inner_id);
+            return;
+        }
+        vectors_.push_back(*vector);
+        ids_.push_back(inner_id);
+        if (vectors_.size() >= SINDI_V2_FILE_RERANK_BATCH_SIZE) {
+            this->Flush();
+        }
+    }
+
+    void
+    Flush() {
+        if (vectors_.empty()) {
+            return;
+        }
+        rerank_flat_->BatchInsertVector(
+            vectors_.data(), static_cast<InnerIdType>(vectors_.size()), ids_.data());
+        vectors_.clear();
+        ids_.clear();
+    }
+
+private:
+    FlattenInterfacePtr rerank_flat_;
+    bool enabled_{false};
+    std::vector<SparseVector> vectors_;
+    std::vector<InnerIdType> ids_;
+};
+
 std::vector<uint32_t>
 make_top_terms_signature(const SparseVector& vector, uint32_t top_terms) {
     std::vector<std::pair<float, uint32_t>> weighted_terms;
@@ -251,7 +303,8 @@ void
 write_rerank_flat_with_layout(const FlattenInterfacePtr& rerank_flat,
                               std::vector<RerankLayoutRecord>& records,
                               const std::string& rerank_layout,
-                              uint32_t rerank_layout_top_terms) {
+                              uint32_t rerank_layout_top_terms,
+                              const IOParamPtr& io_param) {
     if (rerank_layout != SINDI_V2_RERANK_LAYOUT_NONE) {
         for (auto& record : records) {
             if (rerank_layout == SINDI_V2_RERANK_LAYOUT_TOP_TERMS_SIGNATURE) {
@@ -267,9 +320,11 @@ write_rerank_flat_with_layout(const FlattenInterfacePtr& rerank_flat,
         });
     }
 
+    RerankBuildBatcher batcher(rerank_flat, io_param);
     for (const auto& record : records) {
-        rerank_flat->InsertVector(record.vector, record.inner_id);
+        batcher.Insert(record.vector, record.inner_id);
     }
+    batcher.Flush();
 }
 
 }  // namespace
@@ -457,6 +512,7 @@ SINDIV2::Add(const DatasetPtr& base) {
     Vector<float> pruned_vals(allocator_);
     Vector<uint32_t> remapped_ids(allocator_);
     std::vector<RerankLayoutRecord> rerank_layout_records;
+    RerankBuildBatcher rerank_batcher(rerank_flat_, param_->rerank_io_parameter);
     if (use_reorder_ && rerank_layout_ != SINDI_V2_RERANK_LAYOUT_NONE) {
         rerank_layout_records.reserve(data_num);
     }
@@ -505,7 +561,7 @@ SINDIV2::Add(const DatasetPtr& base) {
         }
 
         if (use_reorder_ && rerank_layout_ == SINDI_V2_RERANK_LAYOUT_NONE) {
-            rerank_flat_->InsertVector(sparse_vectors + i, cur_element_count_);
+            rerank_batcher.Insert(sparse_vectors + i, cur_element_count_);
         } else if (use_reorder_) {
             rerank_layout_records.push_back(
                 {sparse_vectors + i, static_cast<InnerIdType>(cur_element_count_), {}});
@@ -514,9 +570,14 @@ SINDIV2::Add(const DatasetPtr& base) {
         cur_element_count_++;
     }
 
-    if (use_reorder_ && rerank_layout_ != SINDI_V2_RERANK_LAYOUT_NONE) {
-        write_rerank_flat_with_layout(
-            rerank_flat_, rerank_layout_records, rerank_layout_, rerank_layout_top_terms_);
+    if (use_reorder_ && rerank_layout_ == SINDI_V2_RERANK_LAYOUT_NONE) {
+        rerank_batcher.Flush();
+    } else if (use_reorder_) {
+        write_rerank_flat_with_layout(rerank_flat_,
+                                      rerank_layout_records,
+                                      rerank_layout_,
+                                      rerank_layout_top_terms_,
+                                      param_->rerank_io_parameter);
     }
 
     this->cal_memory_usage();
@@ -571,6 +632,7 @@ SINDIV2::build_immutable(const DatasetPtr& base) {
     Vector<float> pruned_vals(allocator_);
     Vector<uint32_t> remapped_ids(allocator_);
     std::vector<RerankLayoutRecord> rerank_layout_records;
+    RerankBuildBatcher rerank_batcher(rerank_flat_, param_->rerank_io_parameter);
     if (use_reorder_ && rerank_layout_ != SINDI_V2_RERANK_LAYOUT_NONE) {
         rerank_layout_records.reserve(data_num);
     }
@@ -611,7 +673,7 @@ SINDIV2::build_immutable(const DatasetPtr& base) {
             extra_infos_->InsertExtraInfo(extra_info + i * extra_info_size, cur_element_count_);
         }
         if (use_reorder_ && rerank_layout_ == SINDI_V2_RERANK_LAYOUT_NONE) {
-            rerank_flat_->InsertVector(sparse_vectors + i, cur_element_count_);
+            rerank_batcher.Insert(sparse_vectors + i, cur_element_count_);
         } else if (use_reorder_) {
             rerank_layout_records.push_back(
                 {sparse_vectors + i, static_cast<InnerIdType>(cur_element_count_), {}});
@@ -628,9 +690,14 @@ SINDIV2::build_immutable(const DatasetPtr& base) {
         immutable->AppendWindow(staging->GetWindow(0));
         staging.reset();
     }
-    if (use_reorder_ && rerank_layout_ != SINDI_V2_RERANK_LAYOUT_NONE) {
-        write_rerank_flat_with_layout(
-            rerank_flat_, rerank_layout_records, rerank_layout_, rerank_layout_top_terms_);
+    if (use_reorder_ && rerank_layout_ == SINDI_V2_RERANK_LAYOUT_NONE) {
+        rerank_batcher.Flush();
+    } else if (use_reorder_) {
+        write_rerank_flat_with_layout(rerank_flat_,
+                                      rerank_layout_records,
+                                      rerank_layout_,
+                                      rerank_layout_top_terms_,
+                                      param_->rerank_io_parameter);
     }
     term_datacell_ = std::move(immutable);
     this->cal_memory_usage();
