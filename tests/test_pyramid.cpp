@@ -374,6 +374,87 @@ TEST_CASE_PERSISTENT_FIXTURE(fixtures::PyramidTestIndex,
     REQUIRE_NOTHROW(index->GetStats());
 }
 
+TEST_CASE_PERSISTENT_FIXTURE(
+    fixtures::PyramidTestIndex,
+    "Pyramid factor, RaBitQ candidate rescue, and reorder distance count limit",
+    "[ft][pyramid][rabitq_split][statistics]") {
+    constexpr int64_t dim = 64;
+    constexpr uint64_t count = 180;
+    constexpr int64_t topk = 10;
+
+    PyramidParam pyramid_param;
+    pyramid_param.no_build_levels = {0};
+    pyramid_param.base_quantization_type = "rabitq";
+    pyramid_param.precise_quantization_type = "rabitq";
+    pyramid_param.use_reorder = true;
+    pyramid_param.rabitq_bits_per_dim_base = 3;
+    auto param_json =
+        vsag::JsonType::Parse(GeneratePyramidBuildParametersString("l2", dim, pyramid_param));
+    param_json["index_param"]["rabitq_bits_per_dim_precise"].SetInt(5);
+
+    auto index = TestFactory("pyramid", param_json.Dump(), true);
+    fixtures::TestDatasetPool dataset_pool;
+    auto dataset = dataset_pool.GetDatasetAndCreate(dim, count, "l2", /*with_path=*/true);
+    TestBuildIndex(index, dataset, true);
+    auto query = fixtures::get_one_query(dataset->query_, 0);
+    std::string query_path = "a|b";
+    query->Paths(&query_path);
+
+    auto search = [&](float factor, bool candidate_rescue, int64_t reorder_distance_count_limit) {
+        auto search_param = fmt::format(R"({{
+            "pyramid": {{
+                "ef_search": 80,
+                "subindex_ef_search": 20,
+                "factor": {},
+                "rabitq_candidate_rescue": {},
+                "rabitq_error_rate": 1000000.0
+            }}
+        }})",
+                                        factor,
+                                        candidate_rescue);
+        auto search_json = vsag::JsonType::Parse(search_param);
+        if (reorder_distance_count_limit >= 0) {
+            search_json["pyramid"]["rabitq_reorder_distance_count_limit"].SetInt(
+                reorder_distance_count_limit);
+        }
+        auto result = index->KnnSearch(query, topk, search_json.Dump());
+        REQUIRE(result.has_value());
+        return vsag::JsonType::Parse(result.value()->GetStatistics());
+    };
+
+    const auto uncapped = search(1.0F, false, -1);
+    const auto uncapped_count = uncapped["reorder_lower_bound_probe_count"].GetUint64();
+    REQUIRE(uncapped_count > 20);
+
+    for (const auto ignored_factor : {0.5F, -2.0F}) {
+        const auto statistics = search(ignored_factor, false, -1);
+        REQUIRE(statistics["reorder_lower_bound_probe_count"].GetUint64() == uncapped_count);
+    }
+
+    const auto large_factor = search(100.0F, false, -1);
+    REQUIRE(large_factor["reorder_lower_bound_probe_count"].GetUint64() == uncapped_count);
+
+    const auto without_rescue = search(2.0F, false, -1);
+    const auto without_rescue_probes =
+        without_rescue["reorder_lower_bound_probe_count"].GetUint64();
+    const auto without_rescue_distances = without_rescue["reorder_distance_count"].GetUint64();
+    REQUIRE(without_rescue_probes == 20);
+    REQUIRE(without_rescue_distances <= without_rescue_probes);
+
+    const auto with_rescue = search(2.0F, true, -1);
+    REQUIRE(with_rescue["reorder_lower_bound_probe_count"].GetUint64() == 20);
+    REQUIRE(with_rescue["reorder_distance_count"].GetUint64() > without_rescue_probes);
+
+    constexpr int64_t reorder_distance_count_limit = 15;
+    const auto limited = search(2.0F, true, reorder_distance_count_limit);
+    const auto limited_probes = limited["reorder_lower_bound_probe_count"].GetUint64();
+    const auto limited_distances = limited["reorder_distance_count"].GetUint64();
+    REQUIRE(limited_probes == 20);
+    REQUIRE(limited_distances == reorder_distance_count_limit);
+    REQUIRE(limited["distance_evaluations_by_phase"]["rerank"].GetUint64() ==
+            limited_probes + limited_distances);
+}
+
 TEST_CASE_PERSISTENT_FIXTURE(fixtures::PyramidTestIndex,
                              "Pyramid split RaBitQ promotes without raw vectors",
                              "[ft][pyramid][rabitq][add]") {

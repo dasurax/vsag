@@ -34,7 +34,8 @@ public:
             QueryContext& ctx,
             IteratorFilterContext* iter_ctx = nullptr,
             const DistanceRecordVector* rabitq_lower_bound_candidates = nullptr,
-            const std::optional<float>& distance_threshold = std::nullopt) = 0;
+            const std::optional<float>& distance_threshold = std::nullopt,
+            int64_t reorder_distance_count_limit = -1) = 0;
 };
 
 }  // namespace vsag

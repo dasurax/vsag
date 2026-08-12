@@ -522,18 +522,37 @@ TEST_CASE("HGraph Search Parameters parse RaBitQ error rate", "[ut][HGraphParame
         "hgraph": {
             "ef_search": 200,
             "rabitq_one_bit_search": true,
+            "rabitq_candidate_rescue": false,
+            "rabitq_reorder_distance_count_limit": 123,
             "rabitq_error_rate": 2.5
         }
     })");
 
     REQUIRE(params.ef_search == 200);
     REQUIRE(params.rabitq_one_bit_search);
+    REQUIRE_FALSE(params.rabitq_candidate_rescue);
+    REQUIRE(params.rabitq_reorder_distance_count_limit == 123);
     REQUIRE(std::abs(params.rabitq_error_rate - 2.5F) < 1e-5F);
+
+    auto default_params = vsag::HGraphSearchParameters::FromJson(R"({
+        "hgraph": {
+            "ef_search": 200
+        }
+    })");
+    REQUIRE(default_params.rabitq_candidate_rescue);
+    REQUIRE(default_params.rabitq_reorder_distance_count_limit == -1);
 
     REQUIRE_THROWS(vsag::HGraphSearchParameters::FromJson(R"({
         "hgraph": {
             "ef_search": 200,
             "rabitq_error_rate": 0.0
+        }
+    })"));
+
+    REQUIRE_THROWS(vsag::HGraphSearchParameters::FromJson(R"({
+        "hgraph": {
+            "ef_search": 200,
+            "rabitq_reorder_distance_count_limit": -1
         }
     })"));
 }

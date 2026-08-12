@@ -222,11 +222,14 @@ base->NumElements(num_vectors)->Dim(dim)->Ids(ids)
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `ef_search` | int64 | —（必填） | 正数搜索前沿大小；接受到 `INT64_MAX`，不存在与 `topk` 相关的上限。值越大，召回、延迟和前沿内存通常都越高。 |
+| `factor` | float | `0.0` | KNN 检索中，取值大于 `1.0` 时，将进入精排的普通候选数限制为 `min(max(ef_search, topk), floor(topk * factor))`；不大于 `1.0` 时忽略。 |
 | `hops_limit` | int | 不限 | beam search 在返回当前前沿前允许的最大跳数。 |
 | `skip_ratio` | float | `0.2` | 过滤场景下的性能调优参数。控制跳过无效点的比例，取值范围 `[0.0, 1.0]`。`skip_ratio=0.2` 表示跳过 20% 的无效点，只检查 80% 的无效点。值越大性能越好但召回率可能越低。仅在带 filter 的搜索中生效。详见下文[过滤跳过策略](#过滤跳过策略skip_ratio-与-skip_strategy)。 |
 | `skip_strategy` | string | `"deterministic_accumulative"` | 过滤跳过的策略。可选值：`"random"`（随机跳过）或 `"deterministic_accumulative"`（确定性累积跳过）。详见下文[过滤跳过策略](#过滤跳过策略skip_ratio-与-skip_strategy)。 |
 | `brute_force_threshold` | float | `0.0` | 选择率感知的暴搜回退开关。当取值 `> 0` 且当前 filter 的 `ValidRatio()` 小于等于 `brute_force_threshold` 时，搜索会**完全跳过图遍历**，直接在通过过滤的 id 上用最佳精度的 flatten 编码做一次暴力扫描（细节见下一节）。取值范围 `[0.0, 1.0]`；默认 `0.0` 表示关闭，保持原有行为。 |
 | `rabitq_one_bit_search` | bool | `false` | 启用 RaBitQ filter/lower-bound 路径；对 x+y split 索引会使用全部 x 个 filter bits，详见 [RaBitQ x+y Split](../quantization/rabitq_split.md)。 |
+| `rabitq_candidate_rescue` | bool | `true` | 在 RaBitQ x+y one-bit 路径中，控制普通检索堆之外的 lower-bound 候选是否可加入精排。设为 `false` 仍会对普通候选执行 lower-bound 精排，但关闭这部分额外的召回补偿。 |
+| `rabitq_reorder_distance_count_limit` | int | 不限 | 仅用于 RaBitQ x+y lower-bound 路径的 KNN 检索，限制完整 x+y 精排距离的总计算次数。配置时必须不小于 `topk`，不影响普通精排路径。 |
 | `rabitq_error_rate` | float | 索引默认值 | 本次搜索使用的正数 lower-bound 误差倍率；调整它不需要重建 split 索引。 |
 
 ```cpp

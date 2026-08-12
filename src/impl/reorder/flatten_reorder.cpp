@@ -56,7 +56,8 @@ FlattenReorder::Reorder(const vsag::DistHeapPtr& input,
                         QueryContext& ctx,
                         IteratorFilterContext* iter_ctx,
                         const DistanceRecordVector* rabitq_lower_bound_candidates,
-                        const std::optional<float>& distance_threshold) {
+                        const std::optional<float>& distance_threshold,
+                        int64_t reorder_distance_count_limit) {
     // set query allocator
     Allocator* query_allocator = select_query_allocator(ctx.alloc, allocator_);
     auto is_distance_eligible = [&distance_threshold](float distance) {
@@ -161,7 +162,11 @@ FlattenReorder::Reorder(const vsag::DistHeapPtr& input,
         }
     }
 
-    topk = std::min(topk, static_cast<int64_t>(candidate_size));
+    const uint64_t distance_count_limit =
+        reorder_distance_count_limit < 0
+            ? candidate_size
+            : std::min(candidate_size, static_cast<uint64_t>(reorder_distance_count_limit));
+    topk = std::min(topk, static_cast<int64_t>(distance_count_limit));
     auto reorder_heap = std::make_shared<StandardHeap<true, false>>(query_allocator, topk);
     if (topk == 0 || candidate_size == 0) {
         return reorder_heap;
@@ -179,13 +184,16 @@ FlattenReorder::Reorder(const vsag::DistHeapPtr& input,
     }
 
     if (not lower_bounds_available) {
-        add_reorder_distance_count(ctx, candidate_size);
+        add_reorder_distance_count(ctx, distance_count_limit);
         {
             ScopedDistancePhase scoped(ctx, DistanceEvaluationPhase::RERANK);
-            flatten_->Query(
-                lower_bound_probe_dists.data(), computer, all_ids.data(), candidate_size, &ctx);
+            flatten_->Query(lower_bound_probe_dists.data(),
+                            computer,
+                            all_ids.data(),
+                            distance_count_limit,
+                            &ctx);
         }
-        for (uint64_t i = 0; i < candidate_size; ++i) {
+        for (uint64_t i = 0; i < distance_count_limit; ++i) {
             if (ctx.reasoning_ctx != nullptr) {
                 ctx.reasoning_ctx->RecordReorder(
                     all_ids[i], lower_bounds[i], lower_bound_probe_dists[i]);
@@ -248,7 +256,8 @@ FlattenReorder::Reorder(const vsag::DistHeapPtr& input,
     }
 
     uint64_t cursor = bootstrap_size;
-    while (cursor < candidate_size) {
+    uint64_t remaining_reorder_budget = distance_count_limit - bootstrap_size;
+    while (cursor < candidate_size and remaining_reorder_budget > 0) {
         if (reorder_heap->Size() == topk &&
             lower_bounds[order[cursor]] >= reorder_heap->Top().first) {
             break;
@@ -257,8 +266,9 @@ FlattenReorder::Reorder(const vsag::DistHeapPtr& input,
         const auto pruning_threshold = reorder_heap->Size() == topk
                                            ? reorder_heap->Top().first
                                            : std::numeric_limits<float>::max();
+        const auto current_batch_size = std::min(batch_size, remaining_reorder_budget);
         uint64_t batch_count = 0;
-        while (cursor < candidate_size && batch_count < batch_size) {
+        while (cursor < candidate_size && batch_count < current_batch_size) {
             const auto idx = order[cursor];
             if (lower_bounds[idx] >= pruning_threshold) {
                 break;
@@ -281,6 +291,7 @@ FlattenReorder::Reorder(const vsag::DistHeapPtr& input,
             flatten_->QueryWithDistanceHint(
                 dists.data(), hint_dists.data(), computer, ids.data(), batch_count, &ctx);
         }
+        remaining_reorder_budget -= batch_count;
         for (uint64_t i = 0; i < batch_count; ++i) {
             if (ctx.reasoning_ctx != nullptr) {
                 ctx.reasoning_ctx->RecordReorder(

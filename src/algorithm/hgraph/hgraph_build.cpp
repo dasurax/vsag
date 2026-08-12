@@ -1012,7 +1012,8 @@ HGraph::reorder(const void* query,
                 IteratorFilterContext* iter_ctx,
                 QueryContext& ctx,
                 const DistanceRecordVector* rabitq_lower_bound_candidates,
-                const std::optional<float>& distance_threshold) const {
+                const std::optional<float>& distance_threshold,
+                int64_t reorder_distance_count_limit) const {
     uint64_t size = candidate_heap->Size();
     if (k <= 0) {
         k = static_cast<int64_t>(size);
@@ -1027,7 +1028,8 @@ HGraph::reorder(const void* query,
                                               ctx,
                                               iter_ctx,
                                               rabitq_lower_bound_candidates,
-                                              distance_threshold);
+                                              distance_threshold,
+                                              reorder_distance_count_limit);
     candidate_heap = reorder_heap;
 }
 

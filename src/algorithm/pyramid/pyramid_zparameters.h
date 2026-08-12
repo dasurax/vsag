@@ -103,6 +103,8 @@ public:
     uint32_t hops_limit{std::numeric_limits<uint32_t>::max()};
     bool has_rabitq_one_bit_search{false};
     bool rabitq_one_bit_search{false};
+    bool rabitq_candidate_rescue{true};
+    int64_t rabitq_reorder_distance_count_limit{-1};
     float rabitq_error_rate{std::numeric_limits<float>::quiet_NaN()};
     std::vector<std::string> hierarchies;
     HierarchyOp hierarchy_op{HierarchyOp::SINGLE};

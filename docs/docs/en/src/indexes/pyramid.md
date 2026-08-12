@@ -156,10 +156,14 @@ Search-time parameters live under the `pyramid` sub-object:
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `ef_search` | int | `100` | Candidate list size for the leaf-level graph search. |
+| `factor` | float | `0.0` | For KNN search, values greater than `1.0` limit the globally merged ordinary candidates sent to reorder to `min(max(ef_search, topk), floor(topk * factor))`. Values at or below `1.0` are ignored. |
 | `hops_limit` | int | unlimited | Hard cap on hops for root-graph KNN search; ignored when it is not greater than `ef_search`. |
 | `subindex_ef_search` | int | `50` | Candidate list size used when traversing intermediate sub-graphs on the path. |
 | `hierarchies` | string[] | `[]` | Select which hierarchy to search. Empty means use the default (unnamed) hierarchy. |
 | `hierarchy_op` | string | `"single"` | How to combine results across hierarchies: `single` (search one hierarchy), `union`, or `intersection`. **Note:** `union` and `intersection` are not yet implemented — setting them will cause `KnnSearch`/`RangeSearch` to return an error. |
+| `rabitq_one_bit_search` | bool | split-index default | Controls the RaBitQ filter/lower-bound path. It is enabled by default for x+y split indexes with reorder. |
+| `rabitq_candidate_rescue` | bool | `true` | On the RaBitQ x+y one-bit path, controls whether lower-bound candidates outside the ordinary search heaps may be added to reorder. Setting it to `false` keeps lower-bound reorder for ordinary candidates but disables this extra recall rescue. |
+| `rabitq_reorder_distance_count_limit` | int | unlimited | For KNN search on the RaBitQ x+y lower-bound path, caps the total number of full x+y reorder distance evaluations after globally merging Pyramid candidates. When set, it must be at least `topk`. It does not affect standard reorder paths. |
 | `rabitq_error_rate` | float | `1.9` | Positive lower-bound error multiplier for this search. The default `1.9` is relatively large; increasing it improves accuracy but slows down search. |
 
 ```cpp

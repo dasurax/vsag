@@ -150,10 +150,14 @@ Pyramid 使用 split code 的 code-code 距离完成增量 FLAT→GRAPH 晋升�
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `ef_search` | int | `100` | 叶子层子图检索的候选集大小 |
+| `factor` | float | `0.0` | KNN 检索中，取值大于 `1.0` 时，将全局合并后进入精排的普通候选数限制为 `min(max(ef_search, topk), floor(topk * factor))`；不大于 `1.0` 时忽略。 |
 | `hops_limit` | int | 不限 | 根图 KNN 检索的最大跳数；不大于 `ef_search` 时忽略 |
 | `subindex_ef_search` | int | `50` | 沿路径向下遍历中间子图时的候选集大小 |
 | `hierarchies` | string[] | `[]` | 指定检索哪个层级。空数组表示使用默认（匿名）层级。 |
 | `hierarchy_op` | string | `"single"` | 多层级结果合并方式：`single`（检索单个层级）、`union`、`intersection`。**注意：** `union` 和 `intersection` 尚未实现——设置后 `KnnSearch`/`RangeSearch` 会返回错误。 |
+| `rabitq_one_bit_search` | bool | split 索引默认开启 | 控制 RaBitQ filter/lower-bound 路径；对启用精排的 x+y split 索引默认开启。 |
+| `rabitq_candidate_rescue` | bool | `true` | 在 RaBitQ x+y one-bit 路径中，控制普通检索堆之外的 lower-bound 候选是否可加入精排。设为 `false` 仍会对普通候选执行 lower-bound 精排，但关闭这部分额外的召回补偿。 |
+| `rabitq_reorder_distance_count_limit` | int | 不限 | 仅用于 RaBitQ x+y lower-bound 路径的 KNN 检索，在 Pyramid 候选全局合并后限制完整 x+y 精排距离的总计算次数。配置时必须不小于 `topk`，不影响普通精排路径。 |
 | `rabitq_error_rate` | float | `1.9` | 本次搜索使用的正数 lower-bound 误差倍率。默认值 `1.9` 较大；值越大，精度越高，但搜索速度越慢。 |
 
 ```cpp

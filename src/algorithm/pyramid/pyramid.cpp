@@ -299,6 +299,12 @@ Pyramid::KnnSearch(const DatasetPtr& query,
     search_param.ef = std::max<uint64_t>(parsed_param.ef_search, static_cast<uint64_t>(k));
     search_param.radius = std::numeric_limits<float>::max();
     search_param.topk = threshold.has_value() ? static_cast<int64_t>(search_param.ef) : k;
+    int64_t reorder_candidate_limit = -1;
+    if (parsed_param.topk_factor > 1.0F) {
+        reorder_candidate_limit =
+            std::min(static_cast<int64_t>(search_param.ef),
+                     static_cast<int64_t>(static_cast<float>(k) * parsed_param.topk_factor));
+    }
     search_param.distance_threshold = threshold;
     search_param.enable_reorder = use_reorder_;
     search_param.search_mode = KNN_SEARCH;
@@ -329,9 +335,20 @@ Pyramid::KnnSearch(const DatasetPtr& query,
     }
 
     search_param.is_inner_id_allowed = this->create_search_filter(filter);
-    const bool collect_rabitq_lower_bounds = search_param.enable_rabitq_one_bit_search and
-                                             use_reorder_ and
-                                             base_codes_->SupportSplitCodeStorage();
+    const bool use_rabitq_lower_bound_reorder = search_param.enable_rabitq_one_bit_search and
+                                                use_reorder_ and
+                                                base_codes_->SupportSplitCodeStorage();
+    const bool collect_rabitq_lower_bounds =
+        use_rabitq_lower_bound_reorder and parsed_param.rabitq_candidate_rescue;
+    int64_t reorder_distance_count_limit = -1;
+    if (use_rabitq_lower_bound_reorder) {
+        reorder_distance_count_limit = parsed_param.rabitq_reorder_distance_count_limit;
+        CHECK_ARGUMENT(
+            reorder_distance_count_limit < 0 or reorder_distance_count_limit >= k,
+            fmt::format("rabitq_reorder_distance_count_limit({}) must be at least topk({})",
+                        reorder_distance_count_limit,
+                        k));
+    }
     DistanceRecordVector rabitq_lower_bound_candidates(allocator_);
     std::mutex rabitq_lower_bound_mutex;
     SearchFunc search_func = [&](const IndexNode* node, const VisitedListPtr& vl) {
@@ -361,7 +378,9 @@ Pyramid::KnnSearch(const DatasetPtr& query,
                           search_param,
                           ctx,
                           hierarchy_name,
-                          collect_rabitq_lower_bounds ? &rabitq_lower_bound_candidates : nullptr);
+                          use_rabitq_lower_bound_reorder ? &rabitq_lower_bound_candidates : nullptr,
+                          reorder_candidate_limit,
+                          reorder_distance_count_limit);
     result->Statistics(stats.Dump());
     return FilterDatasetByThreshold(result, threshold, allocator_, k);
 }
@@ -444,7 +463,9 @@ Pyramid::search_impl(const DatasetPtr& query,
                      InnerSearchParam& search_param,
                      QueryContext& ctx,
                      const std::string& hierarchy_name,
-                     const DistanceRecordVector* rabitq_lower_bound_candidates) const {
+                     const DistanceRecordVector* rabitq_lower_bound_candidates,
+                     int64_t reorder_candidate_limit,
+                     int64_t reorder_distance_count_limit) const {
     auto h_iter = hierarchies_.find(hierarchy_name);
     CHECK_ARGUMENT(h_iter != hierarchies_.end(),
                    fmt::format("unknown hierarchy name: '{}'", hierarchy_name));
@@ -471,13 +492,20 @@ Pyramid::search_impl(const DatasetPtr& query,
         h.root->Search(search_func, vl, search_result, search_param.ef);
     }
 
+    while (reorder_candidate_limit > 0 and
+           search_result->Size() > static_cast<uint64_t>(reorder_candidate_limit)) {
+        search_result->Pop();
+    }
+
     if (use_reorder_) {
         search_result = this->reorder_->Reorder(search_result,
                                                 query->GetFloat32Vectors(),
                                                 search_param.topk,
                                                 ctx,
                                                 nullptr,
-                                                rabitq_lower_bound_candidates);
+                                                rabitq_lower_bound_candidates,
+                                                std::nullopt,
+                                                reorder_distance_count_limit);
     }
 
     if (search_result->Empty()) {

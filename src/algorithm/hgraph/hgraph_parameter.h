@@ -101,6 +101,8 @@ public:
     bool use_reorder{false};
     bool use_extra_info_filter{false};
     bool rabitq_one_bit_search{false};
+    bool rabitq_candidate_rescue{true};
+    int64_t rabitq_reorder_distance_count_limit{-1};
     bool use_mci{true};
     float mci_seed_ratio{0.1F};
     float mci_hgraph_valid_ratio_threshold{0.05F};

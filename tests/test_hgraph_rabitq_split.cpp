@@ -305,6 +305,70 @@ TEST_CASE("HGraph RaBitQ reorder probes use the rerank statistics phase",
     REQUIRE(rerank == lower_bound_probes + reorder_distances);
 }
 
+TEST_CASE("HGraph RaBitQ Split controls candidate rescue and reorder distance count limit",
+          "[ft][rabitq_split][hgraph][statistics]") {
+    using namespace fixtures;
+    constexpr int64_t dim = 128;
+    constexpr uint64_t base_count = 600;
+    constexpr int64_t topk = 10;
+
+    auto param = HGraphRaBitQSplitTestIndex::GenerateBuildParam(
+        "l2", dim, "block_memory_io", "async_io", 3, 5, true);
+    auto index = TestIndex::TestFactory(HGraphRaBitQSplitTestIndex::name, param, true);
+    auto dataset = HGraphRaBitQSplitTestIndex::pool.GetDatasetAndCreate(dim, base_count, "l2");
+    TestIndex::TestBuildIndex(index, dataset, true);
+    auto query = get_one_query(dataset->query_, 0);
+
+    auto make_search_param = [](bool candidate_rescue, int64_t reorder_distance_count_limit) {
+        auto search_param = fmt::format(R"({{
+            "hgraph": {{
+                "ef_search": 80,
+                "factor": 2.0,
+                "rabitq_one_bit_search": true,
+                "rabitq_candidate_rescue": {},
+                "rabitq_error_rate": 1000000.0
+            }}
+        }})",
+                                        candidate_rescue);
+        auto search_json = vsag::JsonType::Parse(search_param);
+        if (reorder_distance_count_limit >= 0) {
+            search_json["hgraph"]["rabitq_reorder_distance_count_limit"].SetInt(
+                reorder_distance_count_limit);
+        }
+        return search_json.Dump();
+    };
+    auto search = [&](bool candidate_rescue, int64_t reorder_distance_count_limit) {
+        const auto search_param = make_search_param(candidate_rescue, reorder_distance_count_limit);
+        auto result = index->KnnSearch(query, topk, search_param);
+        REQUIRE(result.has_value());
+        return vsag::JsonType::Parse(result.value()->GetStatistics());
+    };
+
+    const auto without_rescue = search(false, -1);
+    const auto without_rescue_probes =
+        without_rescue["reorder_lower_bound_probe_count"].GetUint64();
+    const auto without_rescue_distances = without_rescue["reorder_distance_count"].GetUint64();
+    REQUIRE(without_rescue_probes == 20);
+    REQUIRE(without_rescue_distances <= without_rescue_probes);
+
+    const auto with_rescue = search(true, -1);
+    REQUIRE(with_rescue["reorder_lower_bound_probe_count"].GetUint64() == 20);
+    REQUIRE(with_rescue["reorder_distance_count"].GetUint64() > without_rescue_probes);
+
+    constexpr int64_t reorder_distance_count_limit = 15;
+    const auto limited = search(true, reorder_distance_count_limit);
+    const auto limited_probes = limited["reorder_lower_bound_probe_count"].GetUint64();
+    const auto limited_distances = limited["reorder_distance_count"].GetUint64();
+    REQUIRE(limited_probes == 20);
+    REQUIRE(limited_distances == reorder_distance_count_limit);
+    REQUIRE(limited["io_cnt"].GetUint64() == limited_distances);
+    REQUIRE(limited["distance_evaluations_by_phase"]["rerank"].GetUint64() ==
+            limited_probes + limited_distances);
+
+    auto invalid = index->KnnSearch(query, topk, make_search_param(true, topk - 1));
+    REQUIRE_FALSE(invalid.has_value());
+}
+
 TEST_CASE("HGraph RaBitQ Split ODescent optimized build", "[ft][rabitq_split][hgraph][odescent]") {
     using namespace fixtures;
     constexpr int64_t dim = 128;

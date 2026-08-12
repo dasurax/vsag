@@ -202,6 +202,9 @@ const char* const HGRAPH_PRECISE_DIRECT_READ = "precise_direct_read";
 const char* const HGRAPH_PARAMETER_EF_RUNTIME = "ef_search";
 const char* const HGRAPH_PARAMETER_HOPS_LIMIT = "hops_limit";
 const char* const HGRAPH_PARAMETER_RABITQ_ONE_BIT_SEARCH = "rabitq_one_bit_search";
+const char* const HGRAPH_PARAMETER_RABITQ_CANDIDATE_RESCUE = "rabitq_candidate_rescue";
+const char* const HGRAPH_PARAMETER_RABITQ_REORDER_DISTANCE_COUNT_LIMIT =
+    "rabitq_reorder_distance_count_limit";
 const char* const HGRAPH_PARAMETER_BRUTE_FORCE_THRESHOLD = "brute_force_threshold";
 const char* const HGRAPH_USE_MCI = "use_mci";
 const char* const HGRAPH_MCI_MCS = "mci_mcs";
@@ -274,6 +277,9 @@ const char* const PYRAMID_PARAMETER_EF_SEARCH = "ef_search";
 const char* const PYRAMID_PARAMETER_SUBINDEX_EF_SEARCH = "subindex_ef_search";
 const char* const PYRAMID_PARAMETER_HOPS_LIMIT = "hops_limit";
 const char* const PYRAMID_PARAMETER_RABITQ_ONE_BIT_SEARCH = "rabitq_one_bit_search";
+const char* const PYRAMID_PARAMETER_RABITQ_CANDIDATE_RESCUE = "rabitq_candidate_rescue";
+const char* const PYRAMID_PARAMETER_RABITQ_REORDER_DISTANCE_COUNT_LIMIT =
+    "rabitq_reorder_distance_count_limit";
 // search-time param key (in search JSON under "pyramid")
 const char* const PYRAMID_PARAMETER_HIERARCHIES = "hierarchies";
 const char* const PYRAMID_PARAMETER_HIERARCHY_OP = "hierarchy_op";

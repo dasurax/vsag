@@ -350,6 +350,18 @@ HGraphSearchParameters::FromJson(const std::string& json_string) {
         obj.rabitq_one_bit_search =
             params[INDEX_TYPE_HGRAPH][HGRAPH_PARAMETER_RABITQ_ONE_BIT_SEARCH].GetBool();
     }
+    if (params[INDEX_TYPE_HGRAPH].Contains(HGRAPH_PARAMETER_RABITQ_CANDIDATE_RESCUE)) {
+        obj.rabitq_candidate_rescue =
+            params[INDEX_TYPE_HGRAPH][HGRAPH_PARAMETER_RABITQ_CANDIDATE_RESCUE].GetBool();
+    }
+    if (params[INDEX_TYPE_HGRAPH].Contains(HGRAPH_PARAMETER_RABITQ_REORDER_DISTANCE_COUNT_LIMIT)) {
+        obj.rabitq_reorder_distance_count_limit =
+            params[INDEX_TYPE_HGRAPH][HGRAPH_PARAMETER_RABITQ_REORDER_DISTANCE_COUNT_LIMIT]
+                .GetInt();
+        CHECK_ARGUMENT(obj.rabitq_reorder_distance_count_limit >= 0,
+                       fmt::format("rabitq_reorder_distance_count_limit({}) must be non-negative",
+                                   obj.rabitq_reorder_distance_count_limit));
+    }
     if (params[INDEX_TYPE_HGRAPH].Contains(HGRAPH_USE_MCI)) {
         obj.use_mci = params[INDEX_TYPE_HGRAPH][HGRAPH_USE_MCI].GetBool();
     }

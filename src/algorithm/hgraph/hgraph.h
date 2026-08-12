@@ -636,7 +636,8 @@ private:
             IteratorFilterContext* iter_ctx,
             QueryContext& ctx,
             const DistanceRecordVector* rabitq_lower_bound_candidates = nullptr,
-            const std::optional<float>& distance_threshold = std::nullopt) const;
+            const std::optional<float>& distance_threshold = std::nullopt,
+            int64_t reorder_distance_count_limit = -1) const;
 
     /// Run ELP (Edge-Link Pruning) optimizer on the bottom graph.
     void

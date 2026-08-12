@@ -240,11 +240,14 @@ Search-time parameters live under the `hgraph` sub-object:
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `ef_search` | int64 | — (required) | Positive search-frontier size. Any value up to `INT64_MAX` is accepted; there is no `topk`-relative upper bound. Larger values increase recall, latency, and frontier memory. |
+| `factor` | float | `0.0` | For KNN search, values greater than `1.0` limit the ordinary candidates sent to reorder to `min(max(ef_search, topk), floor(topk * factor))`. Values at or below `1.0` are ignored. |
 | `hops_limit` | int | unlimited | Hard cap on the number of hops the beam search performs before returning the current frontier. |
 | `skip_ratio` | float | `0.2` | Performance tuning parameter for filtered search. Controls the ratio of invalid points to skip, in range `[0.0, 1.0]`. `skip_ratio=0.2` means skip 20% of invalid points and only check 80%. Higher values improve performance but may reduce recall. Only applies to searches with filters. See [Filter Skip Strategy](#filter-skip-strategy-skip_ratio-and-skip_strategy) below. |
 | `skip_strategy` | string | `"deterministic_accumulative"` | Strategy for filter skipping. Options: `"random"` (random skipping) or `"deterministic_accumulative"` (deterministic cumulative skipping). See [Filter Skip Strategy](#filter-skip-strategy-skip_ratio-and-skip_strategy) below. |
 | `brute_force_threshold` | float | `0.0` | Selectivity-aware brute-force fallback. When `> 0` and the supplied filter's `ValidRatio()` is `≤ brute_force_threshold`, the search **bypasses the graph traversal entirely** and runs an exact scan over the valid ids using the best available flatten codes (see the section below). Must lie in `[0.0, 1.0]`; the default `0.0` disables the feature and preserves legacy behavior. |
 | `rabitq_one_bit_search` | bool | `false` | Enables the RaBitQ filter/lower-bound path. On an x+y split index it uses all x filter bits; see [RaBitQ x+y Split](../quantization/rabitq_split.md). |
+| `rabitq_candidate_rescue` | bool | `true` | On the RaBitQ x+y one-bit path, controls whether lower-bound candidates outside the ordinary search heap may be added to reorder. Setting it to `false` keeps lower-bound reorder for ordinary candidates but disables this extra recall rescue. |
+| `rabitq_reorder_distance_count_limit` | int | unlimited | For KNN search on the RaBitQ x+y lower-bound path, caps the total number of full x+y reorder distance evaluations. When set, it must be at least `topk`. It does not affect standard reorder paths. |
 | `rabitq_error_rate` | float | index default | Positive lower-bound error multiplier for this search. It can be tuned without rebuilding the split index. |
 
 ```cpp

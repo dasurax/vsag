@@ -338,7 +338,8 @@ The split datacell serializes, in order:
 Create the destination index with parameters compatible with the serialized
 index, especially `dim`, `metric_type`, x/y bit widths, and query bits.
 Changing an encoded parameter requires rebuilding the index. Tuning only the
-search-time `hgraph.rabitq_error_rate` does not.
+search-time `rabitq_error_rate`, `rabitq_candidate_rescue`, or
+`rabitq_reorder_distance_count_limit` does not.
 
 ## Implementation map
 
@@ -357,11 +358,13 @@ search-time `hgraph.rabitq_error_rate` does not.
 ## Operational notes
 
 - Split storage is currently available on HGraph and Pyramid and requires fp32 query codes. Pyramid enables the one-bit split search path by default for split indexes; pass `rabitq_one_bit_search: false` under `pyramid` to force the standard search path.
+- HGraph and Pyramid accept `rabitq_candidate_rescue: false` at search time to skip lower-bound candidates outside the ordinary search heap. Ordinary candidates still use split lower-bound reorder.
+- For KNN search, `rabitq_reorder_distance_count_limit` caps full x+y distance evaluations across ordinary and rescue candidates. It must be at least `topk` and does not apply to the standard search path.
 - `l2`, `ip`, and `cosine` are supported. The filter-hint reorder shortcut is
   currently specialized for L2.
 - Keep `use_reorder: true` unless x-bit traversal accuracy alone has been
   validated for the dataset.
 - Changing x, y, metric, or transform parameters requires rebuilding the
-  index. A search-time `hgraph.rabitq_error_rate` override does not.
+  index. The search-time overrides above do not.
 - Use [RaBitQ](rabitq.md) for the general quantizer description and
   [HGraph](../indexes/hgraph.md) and [Pyramid](../indexes/pyramid.md) for the complete index parameter tables.

@@ -365,7 +365,9 @@ private:
                 InnerSearchParam& search_param,
                 QueryContext& ctx,
                 const std::string& hierarchy_name,
-                const DistanceRecordVector* rabitq_lower_bound_candidates = nullptr) const;
+                const DistanceRecordVector* rabitq_lower_bound_candidates = nullptr,
+                int64_t reorder_candidate_limit = -1,
+                int64_t reorder_distance_count_limit = -1) const;
 
     /// Probabilistic check: should total_count trigger a new entry-point update?
     bool

@@ -344,6 +344,17 @@ PyramidSearchParameters::FromJson(const std::string& json_string) {
         obj.rabitq_one_bit_search =
             params[INDEX_PYRAMID][PYRAMID_PARAMETER_RABITQ_ONE_BIT_SEARCH].GetBool();
     }
+    if (params[INDEX_PYRAMID].Contains(PYRAMID_PARAMETER_RABITQ_CANDIDATE_RESCUE)) {
+        obj.rabitq_candidate_rescue =
+            params[INDEX_PYRAMID][PYRAMID_PARAMETER_RABITQ_CANDIDATE_RESCUE].GetBool();
+    }
+    if (params[INDEX_PYRAMID].Contains(PYRAMID_PARAMETER_RABITQ_REORDER_DISTANCE_COUNT_LIMIT)) {
+        obj.rabitq_reorder_distance_count_limit =
+            params[INDEX_PYRAMID][PYRAMID_PARAMETER_RABITQ_REORDER_DISTANCE_COUNT_LIMIT].GetInt();
+        CHECK_ARGUMENT(obj.rabitq_reorder_distance_count_limit >= 0,
+                       fmt::format("rabitq_reorder_distance_count_limit({}) must be non-negative",
+                                   obj.rabitq_reorder_distance_count_limit));
+    }
     if (params[INDEX_PYRAMID].Contains(RABITQ_ERROR_RATE)) {
         obj.rabitq_error_rate = params[INDEX_PYRAMID][RABITQ_ERROR_RATE].GetFloat();
         CHECK_ARGUMENT(std::isfinite(obj.rabitq_error_rate),

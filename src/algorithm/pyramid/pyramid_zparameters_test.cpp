@@ -639,22 +639,37 @@ TEST_CASE("Pyramid parses RaBitQ split search parameters", "[ut][PyramidParamete
     })");
     REQUIRE_FALSE(default_params.has_rabitq_one_bit_search);
     REQUIRE_FALSE(default_params.rabitq_one_bit_search);
+    REQUIRE(default_params.rabitq_candidate_rescue);
+    REQUIRE(default_params.rabitq_reorder_distance_count_limit == -1);
 
     auto explicit_params = vsag::PyramidSearchParameters::FromJson(R"({
         "pyramid": {
             "ef_search": 100,
+            "factor": 2.5,
             "rabitq_one_bit_search": false,
+            "rabitq_candidate_rescue": false,
+            "rabitq_reorder_distance_count_limit": 123,
             "rabitq_error_rate": 2.5
         }
     })");
     REQUIRE(explicit_params.has_rabitq_one_bit_search);
     REQUIRE_FALSE(explicit_params.rabitq_one_bit_search);
+    REQUIRE_FALSE(explicit_params.rabitq_candidate_rescue);
+    REQUIRE(explicit_params.rabitq_reorder_distance_count_limit == 123);
+    REQUIRE(std::abs(explicit_params.topk_factor - 2.5F) < 1e-5F);
     REQUIRE(std::abs(explicit_params.rabitq_error_rate - 2.5F) < 1e-5F);
 
     REQUIRE_THROWS(vsag::PyramidSearchParameters::FromJson(R"({
         "pyramid": {
             "ef_search": 100,
             "rabitq_error_rate": 0.0
+        }
+    })"));
+
+    REQUIRE_THROWS(vsag::PyramidSearchParameters::FromJson(R"({
+        "pyramid": {
+            "ef_search": 100,
+            "rabitq_reorder_distance_count_limit": -1
         }
     })"));
 }

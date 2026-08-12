@@ -324,7 +324,8 @@ split datacell 按以下顺序序列化：
 
 创建目标索引时必须使用与序列化索引兼容的参数，尤其是 `dim`、`metric_type`、
 x/y bit 数和 query bits。修改编码参数需要重建索引；只调整搜索参数
-`hgraph.rabitq_error_rate` 不需要。
+`rabitq_error_rate`、`rabitq_candidate_rescue` 或
+`rabitq_reorder_distance_count_limit` 不需要。
 
 ## 实现位置
 
@@ -343,10 +344,12 @@ x/y bit 数和 query bits。修改编码参数需要重建索引；只调整搜�
 ## 使用注意
 
 - split storage 当前可用于 HGraph 和 Pyramid，并且要求 fp32 query code。Pyramid 的 split 索引默认启用 one-bit split 搜索路径；如需强制使用普通搜索路径，可以在 `pyramid` 搜索参数下传 `rabitq_one_bit_search: false`。
+- HGraph 和 Pyramid 都可以在检索参数中设置 `rabitq_candidate_rescue: false`，跳过普通检索堆之外的 lower-bound 候选；普通候选仍使用 split lower-bound 精排。
+- KNN 检索可以通过 `rabitq_reorder_distance_count_limit` 限制普通候选和 rescue 候选的完整 x+y 距离总计算次数；该值必须不小于 `topk`，且不作用于普通搜索路径。
 - 支持 `l2`、`ip` 和 `cosine`；利用 filter hint 的 reorder 快速路径当前针对 L2。
 - 除非已经验证仅靠 x-bit 遍历距离能满足召回要求，否则应保持
   `use_reorder: true`。
 - 修改 x、y、metric 或 transform 参数后必须重建索引；在搜索参数中覆盖
-  `hgraph.rabitq_error_rate` 不需要重建。
+  上述搜索参数不需要重建。
 - RaBitQ 通用说明见 [RaBitQ](rabitq.md)，完整 HGraph 参数见
   [HGraph 索引](../indexes/hgraph.md)和 [Pyramid 索引](../indexes/pyramid.md)。

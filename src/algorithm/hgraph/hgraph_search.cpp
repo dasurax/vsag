@@ -171,10 +171,12 @@ HGraph::KnnSearch(const DatasetPtr& query,
             search_param.skip_ratio = params.skip_ratio;
             search_param.skip_strategy_type = params.skip_strategy_type;
 
+            const bool use_rabitq_lower_bound_reorder =
+                search_param.enable_rabitq_one_bit_search and use_reorder_ and
+                search_param.enable_reorder and reorder_by_base_;
             DistanceRecordVector rabitq_lower_bound_candidates(ctx.alloc);
             auto* rabitq_lower_bound_candidates_ptr =
-                search_param.enable_rabitq_one_bit_search and use_reorder_ and
-                        search_param.enable_reorder and reorder_by_base_
+                use_rabitq_lower_bound_reorder and params.rabitq_candidate_rescue
                     ? &rabitq_lower_bound_candidates
                     : nullptr;
 
@@ -186,6 +188,18 @@ HGraph::KnnSearch(const DatasetPtr& query,
                                                    &ctx,
                                                    rabitq_lower_bound_candidates_ptr);
 
+            rabitq_lower_bound_candidates_ptr =
+                use_rabitq_lower_bound_reorder ? &rabitq_lower_bound_candidates : nullptr;
+            int64_t reorder_distance_count_limit = -1;
+            if (rabitq_lower_bound_candidates_ptr != nullptr) {
+                reorder_distance_count_limit = params.rabitq_reorder_distance_count_limit;
+                CHECK_ARGUMENT(
+                    reorder_distance_count_limit < 0 or reorder_distance_count_limit >= k,
+                    fmt::format("rabitq_reorder_distance_count_limit({}) must be at least "
+                                "topk({})",
+                                reorder_distance_count_limit,
+                                k));
+            }
             if (use_reorder_ and search_param.enable_reorder) {
                 this->reorder(query_data,
                               this->get_reorder_codes(),
@@ -194,7 +208,8 @@ HGraph::KnnSearch(const DatasetPtr& query,
                               iter_filter_ctx,
                               ctx,
                               rabitq_lower_bound_candidates_ptr,
-                              threshold);
+                              threshold,
+                              reorder_distance_count_limit);
             } else if (search_param.enable_reorder and params.rabitq_one_bit_search) {
                 this->reorder(query_data,
                               this->basic_flatten_codes_,
@@ -626,10 +641,12 @@ HGraph::SearchWithRequest(const SearchRequest& request) const {
     search_param.skip_ratio = params.skip_ratio;
     search_param.skip_strategy_type = params.skip_strategy_type;
 
+    const bool use_rabitq_lower_bound_reorder = search_param.enable_rabitq_one_bit_search and
+                                                use_reorder_ and search_param.enable_reorder and
+                                                reorder_by_base_;
     DistanceRecordVector rabitq_lower_bound_candidates(ctx.alloc);
     auto* rabitq_lower_bound_candidates_ptr =
-        search_param.enable_rabitq_one_bit_search and use_reorder_ and
-                search_param.enable_reorder and reorder_by_base_
+        use_rabitq_lower_bound_reorder and params.rabitq_candidate_rescue
             ? &rabitq_lower_bound_candidates
             : nullptr;
 
@@ -673,9 +690,21 @@ HGraph::SearchWithRequest(const SearchRequest& request) const {
     }
     vt_guard.Release();
 
+    rabitq_lower_bound_candidates_ptr =
+        use_rabitq_lower_bound_reorder ? &rabitq_lower_bound_candidates : nullptr;
+
     // Reorder
     if (mci_result.route != "mci" and not brute_force_used and use_reorder_ and
         search_param.enable_reorder) {
+        int64_t reorder_distance_count_limit = -1;
+        if (not is_range and rabitq_lower_bound_candidates_ptr != nullptr) {
+            reorder_distance_count_limit = params.rabitq_reorder_distance_count_limit;
+            CHECK_ARGUMENT(reorder_distance_count_limit < 0 or reorder_distance_count_limit >= k,
+                           fmt::format("rabitq_reorder_distance_count_limit({}) must be at least "
+                                       "topk({})",
+                                       reorder_distance_count_limit,
+                                       k));
+        }
         auto limit = is_range ? request.limited_size_ : k;
         auto reorder_threshold = is_range ? std::nullopt : request.threshold_;
         this->reorder(raw_query,
@@ -685,7 +714,8 @@ HGraph::SearchWithRequest(const SearchRequest& request) const {
                       nullptr,
                       ctx,
                       rabitq_lower_bound_candidates_ptr,
-                      reorder_threshold);
+                      reorder_threshold,
+                      reorder_distance_count_limit);
     } else if (mci_result.route != "mci" and not brute_force_used and
                search_param.enable_reorder and params.rabitq_one_bit_search) {
         auto limit = is_range ? request.limited_size_ : k;
