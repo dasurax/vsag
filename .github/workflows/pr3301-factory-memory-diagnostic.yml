@@ -1,0 +1,81 @@
+name: PR3301 Factory Memory Diagnostic
+
+on:
+  push:
+    branches: [codex/pr3301-factory-memory-diagnostic-20261110]
+
+permissions:
+  contents: read
+
+jobs:
+  factory-memory:
+    name: Factory memory ${{ matrix.label }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: before-fp16-expansion
+            ref: bd9af815f0dc3972fd0a673331a8537d697d9000
+          - label: pr3301-main-baseline
+            ref: dbfc5d29bbf9edb19cd7b3a3592966932d28a465
+    defaults:
+      run:
+        working-directory: source
+    env:
+      VSAG_FETCHCONTENT_BASE_DIR: ${{ github.workspace }}/.ci-fetchcontent
+      VSAG_THIRDPARTY_DOWNLOAD_DIR: ${{ github.workspace }}/.ci-downloads
+      CMAKE_GENERATOR: Ninja
+      CMAKE_EXPORT_COMPILE_COMMANDS: "ON"
+      EXTRA_DEFINED: -DVSAG_USE_SYSTEM_OPENBLAS=ON
+      VSAG_ENABLE_EXAMPLES: "ON"
+      VSAG_ENABLE_TOOLS: "ON"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: harness
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: antgroup/vsag
+          ref: ${{ matrix.ref }}
+          path: source
+          persist-credentials: false
+      - name: Prepare identical host toolchain
+        run: |
+          sudo env VSAG_INSTALL_INTEL_MKL=OFF bash ./scripts/deps/install_deps_ubuntu.sh
+          sudo apt-get install -y ccache time
+          mkdir -p "$GITHUB_WORKSPACE/diagnostics"
+          {
+            git rev-parse HEAD
+            g++ --version
+            cmake --version
+            ninja --version
+            free -k
+            swapon --show
+          } | tee "$GITHUB_WORKSPACE/diagnostics/environment.log"
+      - name: Prepare pinned sources
+        uses: ./source/.github/actions/prepare-fetchcontent
+        with:
+          include-tests: "true"
+          include-tools: "true"
+      - name: Configure unchanged ASan build
+        run: |
+          make configure-asan COMPILE_JOBS=3
+          cp build/compile_commands.json "$GITHUB_WORKSPACE/diagnostics/compile_commands.json"
+      - name: Compile all three factories with memory sampling
+        run: |
+          python3 "$GITHUB_WORKSPACE/harness/scripts/ci/probe_factory_memory.py" \
+            "$GITHUB_WORKSPACE/diagnostics" -- \
+            cmake --build build --parallel 3 --target \
+            src/datacell/CMakeFiles/datacell.dir/flatten_datacell_factory_ip.cpp.o \
+            src/datacell/CMakeFiles/datacell.dir/flatten_datacell_factory_cosine.cpp.o \
+            src/datacell/CMakeFiles/datacell.dir/flatten_datacell_factory_l2.cpp.o
+      - name: Upload compiler memory evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: factory-memory-${{ matrix.label }}
+          path: diagnostics
+          retention-days: 7
